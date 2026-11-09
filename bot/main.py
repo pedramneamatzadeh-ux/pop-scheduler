@@ -8,7 +8,7 @@ import os
 # Set up project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from bot.config import validate, BOT_TOKEN, DATABASE, OWNER_ID, TIMEZONE
+from bot.config import config
 from bot.database import Database
 import bot.database as db_module
 
@@ -26,19 +26,19 @@ logger = logging.getLogger(__name__)
 def main():
     """Start the bot."""
     # Validate configuration
-    errors = validate()
-    if errors:
-        for err in errors:
-            logger.error("Config error: %s", err)
+    try:
+        config.validate()
+    except ValueError as e:
+        logger.error("Config error: %s", e)
         sys.exit(1)
 
     logger.info("Starting Pop Scheduler Bot...")
-    logger.info("Owner ID: %d", OWNER_ID)
-    logger.info("Database: %s", DATABASE)
-    logger.info("Timezone: %s", TIMEZONE)
+    logger.info("Owner ID: %d", config.OWNER_ID)
+    logger.info("Database: %s", config.DB_PATH)
+    logger.info("Timezone: %s", config.TIMEZONE)
 
     # Initialize database
-    database = Database(DATABASE)
+    database = Database(config.DB_PATH)
     database.init()
     db_module.db = database
 
