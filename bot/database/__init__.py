@@ -57,8 +57,8 @@ class Database:
     def update_schedule(self, post_id: int, **kwargs):
         return self.scheduler.update_schedule(post_id, **kwargs)
 
-    def update_status(self, post_id: int, **kwargs):
-        return self.scheduler.update_status(post_id, **kwargs)
+    def update_status(self, post_id: int, status: str, failed_reason: str = None):
+        return self.scheduler.update_status(post_id, status, failed_reason)
 
     def update_target_channel(self, post_id: int, **kwargs):
         return self.scheduler.update_target_channel(post_id, **kwargs)
@@ -109,8 +109,16 @@ class Database:
     def remove_hour(self, hour: int):
         return self.settings.remove_hour(hour)
 
-    def add_history_log(self, **kwargs):
-        return self.settings.add_history_log(**kwargs)
+    def add_history_log(self, post_id: int = None, action: str = None, details: str = None, user_id: int = None, **kwargs):
+        if post_id is None:
+            post_id = kwargs.get("post_id")
+        if action is None:
+            action = kwargs.get("action")
+        if details is None and "details" in kwargs:
+            details = kwargs["details"]
+        if user_id is None and "user_id" in kwargs:
+            user_id = kwargs["user_id"]
+        return self.settings.add_history_log(post_id, action, details, user_id)
 
     # Channel type constants
     CHANNEL_SOURCE = "source"

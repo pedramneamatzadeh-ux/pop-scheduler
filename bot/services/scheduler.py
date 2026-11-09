@@ -59,7 +59,7 @@ class SchedulerService:
             args=[post_id],
             id=job_id,
             replace_existing=True,
-            misfire_grace_time=60  # 1 minute grace period
+            misfire_grace_time=3600  # 1 hour grace period
         )
         logger.info("Scheduled post %d for %s", post_id, target_dt.isoformat())
 
