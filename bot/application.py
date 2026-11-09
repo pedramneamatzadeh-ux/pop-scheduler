@@ -108,16 +108,18 @@ def build_application() -> Application:
             ],
             INPUT_YEAR: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, input_year),
+                CallbackQueryHandler(_cancel_year_inline, pattern=r"^cancel$"),
             ],
             INPUT_DAY: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, input_day),
+                CallbackQueryHandler(_cancel_day_inline, pattern=r"^cancel$"),
             ],
             INPUT_HOUR: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, input_hour),
-                CallbackQueryHandler(input_hour, pattern=r"^(h:|dt:back|m:|cancel)$"),
+                CallbackQueryHandler(input_hour, pattern=r"^(h:|dt:back|cancel)$"),
             ],
             SELECT_TARGET_CHANNEL: [
-                CallbackQueryHandler(select_target_callback, pattern=r"^(dst:|cancel)$"),
+                CallbackQueryHandler(select_target_callback),
             ],
         },
         fallbacks=[
@@ -264,3 +266,19 @@ async def _cancel_inline(update, context):
         parse_mode="HTML"
     )
     return ConversationHandler.END
+
+
+async def _cancel_year_inline(update, context):
+    """لغو از ورود سال (بازگشت به صفحه تاریخ)."""
+    from .handlers.schedule import _show_datetime
+    query = update.callback_query
+    await query.answer()
+    return await _show_datetime(query, context)
+
+
+async def _cancel_day_inline(update, context):
+    """لغو از ورود روز (بازگشت به صفحه تاریخ)."""
+    from .handlers.schedule import _show_datetime
+    query = update.callback_query
+    await query.answer()
+    return await _show_datetime(query, context)
