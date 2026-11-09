@@ -27,11 +27,18 @@ def main_menu(user_id: int, is_owner: bool = False) -> ReplyKeyboardMarkup:
 
 
 def cancel_keyboard() -> ReplyKeyboardMarkup:
-    """Cancel keyboard for text input."""
+    """Cancel keyboard for text input (ReplyKeyboard — use with send_message)."""
     return ReplyKeyboardMarkup(
         [[KeyboardButton(text="❌ لغو")]],
         resize_keyboard=True,
     )
+
+
+def inline_cancel_keyboard() -> InlineKeyboardMarkup:
+    """Cancel button as inline keyboard (use with edit_message_text)."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(text="❌ لغو", callback_data="cancel")]
+    ])
 
 
 # ── Source/Destination Channel Keyboards ────────────────────────────────────
@@ -68,32 +75,32 @@ def dest_channels_keyboard(channels: list[dict]) -> InlineKeyboardMarkup:
 
 # ── Date/Time Keyboards ─────────────────────────────────────────────────────
 
-def datetime_keyboard(year: int, month: int, day: int, hour: int) -> InlineKeyboardMarkup:
+def datetime_keyboard(year: int, month: int, day: int, hour: int,
+                      prefix: str = "dt") -> InlineKeyboardMarkup:
     """
     Main datetime selection keyboard.
     Shows current selections with buttons to change each.
+    prefix: callback prefix ('dt' for schedule, 'edt' for edit)
     """
     month_name = MONTH_NAMES.get(month, str(month))
-    date_str = f"{day} {month_name} {year}"
-    time_str = f"{hour:02d}:00"
 
     buttons = [
         [
             InlineKeyboardButton(
                 text=f"🗓 {month_name} {year}",
-                callback_data="dt:month"
+                callback_data=f"{prefix}:month"
             ),
             InlineKeyboardButton(
                 text=f"📆 {day}",
-                callback_data="dt:day"
+                callback_data=f"{prefix}:day"
             ),
             InlineKeyboardButton(
-                text=f"🕐 {time_str}",
-                callback_data="dt:hour"
+                text=f"🕐 {hour:02d}:00",
+                callback_data=f"{prefix}:hour"
             ),
         ],
         [
-            InlineKeyboardButton(text="✅ ثبت", callback_data="dt:submit"),
+            InlineKeyboardButton(text="✅ ثبت", callback_data=f"{prefix}:submit"),
         ],
         [
             InlineKeyboardButton(text="❌ لغو", callback_data="cancel"),
@@ -102,17 +109,22 @@ def datetime_keyboard(year: int, month: int, day: int, hour: int) -> InlineKeybo
     return InlineKeyboardMarkup(buttons)
 
 
-def months_keyboard(current_month: int) -> InlineKeyboardMarkup:
-    """Months selection keyboard (3 per row)."""
+def months_keyboard(current_month: int, prefix: str = "m",
+                     back_callback: str = "dt:back") -> InlineKeyboardMarkup:
+    """
+    Months selection keyboard (3 per row).
+    prefix: callback prefix ('m' for schedule, 'edm' for edit)
+    back_callback: callback data for back button
+    """
     buttons = []
     row = []
     for m in range(1, 13):
         month_name = MONTH_NAMES_SHORT[m]
         # Checkmark for current month
-        prefix = "✅ " if m == current_month else ""
+        mark = "✅ " if m == current_month else ""
         row.append(InlineKeyboardButton(
-            text=f"{prefix}{month_name}",
-            callback_data=f"m:{m}"
+            text=f"{mark}{month_name}",
+            callback_data=f"{prefix}:{m}"
         ))
         if len(row) == 3:
             buttons.append(row)
@@ -120,19 +132,25 @@ def months_keyboard(current_month: int) -> InlineKeyboardMarkup:
     if row:
         buttons.append(row)
 
-    buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="dt:back")])
+    buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=back_callback)])
     return InlineKeyboardMarkup(buttons)
 
 
-def hours_keyboard(hours: list[int], current_hour: int = None) -> InlineKeyboardMarkup:
-    """Hours selection keyboard (3 per row)."""
+def hours_keyboard(hours: list[int], current_hour: int = None,
+                   prefix: str = "h",
+                   back_callback: str = "dt:back") -> InlineKeyboardMarkup:
+    """
+    Hours selection keyboard (3 per row).
+    prefix: callback prefix ('h' for schedule, 'edh' for edit)
+    back_callback: callback data for back button
+    """
     buttons = []
     row = []
     for h in sorted(hours):
-        prefix = "✅ " if h == current_hour else ""
+        mark = "✅ " if h == current_hour else ""
         row.append(InlineKeyboardButton(
-            text=f"{prefix}{h:02d}:00",
-            callback_data=f"h:{h}"
+            text=f"{mark}{h:02d}:00",
+            callback_data=f"{prefix}:{h}"
         ))
         if len(row) == 3:
             buttons.append(row)
@@ -140,7 +158,7 @@ def hours_keyboard(hours: list[int], current_hour: int = None) -> InlineKeyboard
     if row:
         buttons.append(row)
 
-    buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="dt:back")])
+    buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data=back_callback)])
     return InlineKeyboardMarkup(buttons)
 
 

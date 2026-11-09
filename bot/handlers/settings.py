@@ -13,7 +13,8 @@ from ..constants import (
 from ..keyboards import (
     settings_keyboard, channels_type_keyboard,
     source_channels_manage_keyboard, dest_channels_manage_keyboard,
-    hours_manage_keyboard, admins_manage_keyboard, main_menu, cancel_keyboard,
+    hours_manage_keyboard, admins_manage_keyboard, main_menu,
+    inline_cancel_keyboard,
 )
 from ..config import OWNER_ID
 from ..database import db, CHANNEL_SOURCE, CHANNEL_DESTINATION
@@ -156,7 +157,7 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
         await query.answer()
         await query.edit_message_text(
             "🕐 ساعت مورد نظر را وارد کن (0-23):",
-            reply_markup=cancel_keyboard()
+            reply_markup=inline_cancel_keyboard()
         )
         return CUSTOM_HOUR_INPUT
 
@@ -165,7 +166,7 @@ async def settings_callback_handler(update: Update, context: ContextTypes.DEFAUL
         await query.answer()
         await query.edit_message_text(
             "👥 آیدی عددی ادمین جدید را وارد کن:",
-            reply_markup=cancel_keyboard()
+            reply_markup=inline_cancel_keyboard()
         )
         return ADD_ADMIN
 

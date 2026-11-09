@@ -3,19 +3,24 @@ Posts handler — manage scheduled (active) posts.
 View, edit, delete, cancel scheduled posts.
 """
 import logging
+import calendar
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram.error import BadRequest
 
 from ..constants import (
     Msg, MANAGE_POSTS, MANAGE_POST_DETAIL, EDIT_POST_DATE, EDIT_POST_TIME,
-    EDIT_CUSTOM_TIME, MAIN_MENU, STATUS_PENDING, STATUS_LABELS,
+    EDIT_CUSTOM_TIME, MAIN_MENU, STATUS_PENDING, STATUS_LABELS, MONTH_NAMES,
 )
-from ..keyboards import post_list_keyboard, post_detail_keyboard, main_menu, cancel_keyboard
+from ..keyboards import (
+    post_list_keyboard, post_detail_keyboard, main_menu,
+    datetime_keyboard, months_keyboard, hours_keyboard,
+    dest_channels_keyboard, inline_cancel_keyboard,
+)
 from ..config import OWNER_ID
 from ..utils import (
-    format_schedule_display, paginate, parse_date, parse_time, to_timestamp,
-    is_admin_or_owner, now_tz, fmt_datetime, format_message_ids,
+    format_schedule_display, paginate, to_timestamp,
+    is_admin_or_owner, now_tz, format_message_ids,
 )
 from ..database import db
 from ..services.scheduler import scheduler
@@ -95,10 +100,6 @@ async def posts_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
         await query.answer()
         return await _show_post_detail(query, context, post_id)
 
-    if data == "noop":
-        await query.answer()
-        return MANAGE_POSTS
-
     if data.startswith("del:"):
         post_id = int(data.split(":")[1])
         await query.answer("🗑 حذف...")
@@ -120,71 +121,178 @@ async def posts_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
         await show_active_posts(update, context, page=0)
         return MANAGE_POSTS
 
+    # ── Edit date ───────────────────────────────────────────────────────────
     if data.startswith("edit_date:"):
         post_id = int(data.split(":")[1])
         context.user_data["editing_post_id"] = post_id
         await query.answer()
-        from ..keyboards import date_keyboard
-        await query.edit_message_text(
-            Msg.SELECT_DATE,
-            reply_markup=date_keyboard(),
-            parse_mode="HTML"
-        )
-        return EDIT_POST_DATE
+        # Parse current date from the post
+        post = db.get_post(post_id)
+        if post:
+            now = now_tz()
+            context.user_data["edit_year"] = now.year
+            context.user_data["edit_month"] = now.month
+            context.user_data["edit_day"] = now.day
+            context.user_data["edit_hour"] = int(post["schedule_time"].split(":")[0])
+        return await _show_edit_datetime(query, context)
 
+    # ── Edit time ───────────────────────────────────────────────────────────
     if data.startswith("edit_time:"):
         post_id = int(data.split(":")[1])
         context.user_data["editing_post_id"] = post_id
         await query.answer()
-        hours = db.get_default_hours()
-        from ..keyboards import time_keyboard
+        # Parse current time from the post
+        post = db.get_post(post_id)
+        if post:
+            now = now_tz()
+            try:
+                # Try to parse existing date
+                parts = post["schedule_date"].split()
+                if len(parts) == 3:
+                    day = int(parts[0])
+                    month = _month_name_to_num(parts[1])
+                    year = int(parts[2])
+                else:
+                    day = now.day
+                    month = now.month
+                    year = now.year
+            except (ValueError, IndexError):
+                day = now.day
+                month = now.month
+                year = now.year
+            context.user_data["edit_year"] = year
+            context.user_data["edit_month"] = month
+            context.user_data["edit_day"] = day
+            context.user_data["edit_hour"] = int(post["schedule_time"].split(":")[0])
+        return await _show_edit_datetime(query, context)
+
+    # ── Edit datetime callbacks ─────────────────────────────────────────────
+    if data.startswith("edt:month"):
+        await query.answer()
+        current_month = context.user_data.get("edit_month", now_tz().month)
         await query.edit_message_text(
-            Msg.SELECT_TIME,
-            reply_markup=time_keyboard(hours),
+            "🗓 <b>ماه را انتخاب کن:</b>",
+            reply_markup=months_keyboard(current_month, prefix="edm", back_callback="edt:back"),
+            parse_mode="HTML"
+        )
+        return EDIT_POST_DATE
+
+    if data.startswith("edt:day"):
+        await query.answer()
+        await query.edit_message_text(
+            f"📆 <b>روز</b>\n\nروز را وارد کن (مثال: <code>15</code>):",
+            reply_markup=inline_cancel_keyboard(),
+            parse_mode="HTML"
+        )
+        return EDIT_CUSTOM_TIME
+
+    if data.startswith("edt:hour"):
+        await query.answer()
+        hours = db.get_default_hours()
+        current_hour = context.user_data.get("edit_hour")
+        await query.edit_message_text(
+            "🕐 <b>ساعت</b>\n\nساعت ارسال را انتخاب کن:",
+            reply_markup=hours_keyboard(hours, current_hour, prefix="edh", back_callback="edt:back"),
             parse_mode="HTML"
         )
         return EDIT_POST_TIME
 
+    if data.startswith("edt:submit"):
+        await query.answer()
+        post_id = context.user_data.get("editing_post_id")
+        year = context.user_data.get("edit_year")
+        month = context.user_data.get("edit_month")
+        day = context.user_data.get("edit_day")
+        hour = context.user_data.get("edit_hour")
+
+        if not post_id:
+            await query.edit_message_text("❌ خطا: پست پیدا نشد")
+            return MANAGE_POSTS
+
+        # Validate
+        now = now_tz()
+        try:
+            timestamp = to_timestamp(year, month, day, hour)
+            from datetime import datetime
+            target_dt = datetime.fromtimestamp(timestamp, tz=now.tzinfo)
+            if target_dt <= now:
+                await query.edit_message_text(
+                    "❌ تاریخ و ساعت در گذشته است.",
+                    reply_markup=datetime_keyboard(year, month, day, hour),
+                    parse_mode="HTML"
+                )
+                return EDIT_POST_DATE
+        except (ValueError, OverflowError):
+            await query.edit_message_text(
+                "❌ تاریخ نامعتبر است.",
+                reply_markup=datetime_keyboard(year, month, day, hour),
+                parse_mode="HTML"
+            )
+            return EDIT_POST_DATE
+
+        # Update post
+        date_str = f"{day} {MONTH_NAMES.get(month, month)} {year}"
+        time_str = f"{hour:02d}:00"
+        db.update_schedule(post_id, date_str, time_str, timestamp)
+        scheduler.reschedule_post(post_id, timestamp)
+        db.add_history_log(post_id, "schedule_changed", details=f"to {date_str} {time_str}", user_id=user_id)
+
+        context.user_data.pop("editing_post_id", None)
+        context.user_data.pop("edit_year", None)
+        context.user_data.pop("edit_month", None)
+        context.user_data.pop("edit_day", None)
+        context.user_data.pop("edit_hour", None)
+
+        await query.edit_message_text(Msg.POST_EDITED)
+        await show_active_posts(update, context, page=0)
+        return MANAGE_POSTS
+
+    if data.startswith("edm:"):
+        # Month selected in edit mode
+        month = int(data.replace("edm:", ""))
+        context.user_data["edit_month"] = month
+        await query.answer()
+        return await _show_edit_datetime(query, context)
+
+    if data.startswith("edh:"):
+        # Hour selected in edit mode
+        hour = int(data.replace("edh:", ""))
+        context.user_data["edit_hour"] = hour
+        await query.answer()
+        return await _show_edit_datetime(query, context)
+
+    if data.startswith("edt:back"):
+        await query.answer()
+        return await _show_edit_datetime(query, context)
+
+    # ── Edit target channel ─────────────────────────────────────────────────
     if data.startswith("edit_ch:"):
         post_id = int(data.split(":")[1])
         context.user_data["editing_post_id"] = post_id
         await query.answer()
-        channels = db.get_channels()
-        from ..keyboards import channel_selection_keyboard
+        dest_channels = db.get_channels(channel_type=db.CHANNEL_DESTINATION)
+        if not dest_channels:
+            await query.edit_message_text(Msg.NO_DEST_CHANNELS)
+            return MANAGE_POSTS
         await query.edit_message_text(
-            Msg.SELECT_CHANNEL,
-            reply_markup=channel_selection_keyboard(channels),
+            "📢 کانال مقصد جدید را انتخاب کن:",
+            reply_markup=dest_channels_keyboard(dest_channels),
             parse_mode="HTML"
         )
         return MANAGE_POST_DETAIL
 
-    if data.startswith("ch:") and "editing_post_id" in context.user_data:
+    if data.startswith("dst:") and "editing_post_id" in context.user_data:
         post_id = context.user_data["editing_post_id"]
-        channel_id = data.replace("ch:", "")
+        channel_id = data.replace("dst:", "")
         channel = db.get_channel(channel_id)
         channel_title = channel["title"] if channel else channel_id
 
         db.update_target_channel(post_id, channel_id, channel_title)
         db.add_history_log(post_id, "channel_changed", details=f"to {channel_title}", user_id=user_id)
 
+        context.user_data.pop("editing_post_id", None)
         await query.answer("✅ کانال تغییر کرد")
-        del context.user_data["editing_post_id"]
         return await _show_post_detail(query, context, post_id)
-
-    if data.startswith("resend:"):
-        post_id = int(data.split(":")[1])
-        await query.answer("🔄 در حال ارسال مجدد...")
-        post = db.get_post(post_id)
-        if post:
-            # Re-schedule for now + 30 seconds
-            import time
-            new_ts = time.time() + 30
-            db.update_status(post_id, STATUS_PENDING)
-            from ..constants import STATUS_PENDING
-            db.update_schedule(post_id, post["schedule_date"], post["schedule_time"], new_ts)
-            scheduler.schedule_post(post_id, new_ts)
-            await query.edit_message_text("✅ پست مجدداً زمان‌بندی شد (۳۰ ثانیه دیگر)")
-        return MANAGE_POSTS
 
     if data == "noop":
         await query.answer()
@@ -193,145 +301,52 @@ async def posts_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
     return MANAGE_POSTS
 
 
-async def edit_date_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle date editing callback."""
-    query = update.callback_query
-    post_id = context.user_data.get("editing_post_id")
-    if not post_id:
-        await query.answer()
-        return MANAGE_POSTS
+async def edit_custom_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle day text input for editing."""
+    if update.message.text == "❌ لغو":
+        # Go back to datetime picker
+        return await _show_edit_datetime_from_text(update, context)
 
-    date_str = query.data.replace("d:", "")
+    text = update.message.text.strip()
+    try:
+        day = int(text)
+        if day < 1 or day > 31:
+            raise ValueError()
 
-    if date_str == "custom":
-        await query.answer()
-        await query.edit_message_text(
-            "📅 تاریخ را به فرمت <code>YYYY-MM-DD</code> وارد کن:",
-            parse_mode="HTML"
-        )
-        return EDIT_POST_DATE
+        year = context.user_data.get("edit_year", now_tz().year)
+        month = context.user_data.get("edit_month", now_tz().month)
+        max_day = calendar.monthrange(year, month)[1]
+        if day > max_day:
+            await update.message.reply_text(
+                f"❌ ماه {month} حداکثر {max_day} روز دارد.",
+                parse_mode="HTML"
+            )
+            return EDIT_CUSTOM_TIME
 
-    await query.answer()
+        context.user_data["edit_day"] = day
+        return await _show_edit_datetime_from_text(update, context)
 
-    parsed = parse_date(date_str)
-    if not parsed:
-        await query.edit_message_text(Msg.INVALID_DATE, parse_mode="HTML")
-        return EDIT_POST_DATE
-
-    today = now_tz().date()
-    if parsed < today:
-        await query.edit_message_text(Msg.DATE_IN_PAST, parse_mode="HTML")
-        return EDIT_POST_DATE
-
-    # Update post
-    post = db.get_post(post_id)
-    if post:
-        old_time = parse_time(post["schedule_time"])
-        new_timestamp = to_timestamp(parsed, old_time)
-        db.update_schedule(post_id, date_str, post["schedule_time"], new_timestamp)
-        scheduler.reschedule_post(post_id, new_timestamp)
-        db.add_history_log(post_id, "date_changed", details=f"to {date_str}", user_id=query.from_user.id)
-
-    await query.edit_message_text(Msg.POST_EDITED)
-    return await _show_post_detail(query, context, post_id)
-
-
-async def edit_time_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle time editing callback."""
-    query = update.callback_query
-    post_id = context.user_data.get("editing_post_id")
-    if not post_id:
-        await query.answer()
-        return MANAGE_POSTS
-
-    time_str = query.data.replace("t:", "")
-
-    if time_str == "custom":
-        await query.answer()
-        await query.edit_message_text(
-            "🕐 ساعت را به فرمت <code>HH:MM</code> وارد کن:",
+    except ValueError:
+        await update.message.reply_text(
+            "❌ روز نامعتبر. عدد بین 1 تا 31 وارد کن.",
             parse_mode="HTML"
         )
         return EDIT_CUSTOM_TIME
-
-    await query.answer()
-
-    post = db.get_post(post_id)
-    if post:
-        old_date = parse_date(post["schedule_date"])
-        new_time = parse_time(time_str)
-        new_timestamp = to_timestamp(old_date, new_time)
-        db.update_schedule(post_id, post["schedule_date"], time_str, new_timestamp)
-        scheduler.reschedule_post(post_id, new_timestamp)
-        db.add_history_log(post_id, "time_changed", details=f"to {time_str}", user_id=query.from_user.id)
-
-    await query.edit_message_text(Msg.POST_EDITED)
-    return await _show_post_detail(query, context, post_id)
 
 
 async def edit_custom_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle custom date text input for editing."""
-    if update.message.text == "❌ لغو":
-        post_id = context.user_data.get("editing_post_id")
-        context.user_data.pop("editing_post_id", None)
-        await update.message.reply_text(
-            Msg.CANCELLED,
-            reply_markup=main_menu(update.effective_user.id, is_owner=(update.effective_user.id == OWNER_ID))
-        )
-        return ConversationHandler.END
-
-    parsed = parse_date(update.message.text)
-    if not parsed:
-        await update.message.reply_text(Msg.INVALID_DATE, parse_mode="HTML")
-        return EDIT_POST_DATE
-
-    today = now_tz().date()
-    if parsed < today:
-        await update.message.reply_text(Msg.DATE_IN_PAST, parse_mode="HTML")
-        return EDIT_POST_DATE
-
-    post_id = context.user_data.get("editing_post_id")
-    post = db.get_post(post_id)
-    if post:
-        date_str = str(parsed)
-        old_time = parse_time(post["schedule_time"])
-        new_timestamp = to_timestamp(parsed, old_time)
-        db.update_schedule(post_id, date_str, post["schedule_time"], new_timestamp)
-        scheduler.reschedule_post(post_id, new_timestamp)
-        db.add_history_log(post_id, "date_changed", details=f"to {date_str}", user_id=update.effective_user.id)
-
-    await update.message.reply_text(Msg.POST_EDITED, reply_markup=None, parse_mode="HTML")
-    return ConversationHandler.END
+    """Handle custom date text input (legacy fallback)."""
+    return await edit_custom_time_input(update, context)
 
 
-async def edit_custom_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle custom time text input for editing."""
-    if update.message.text == "❌ لغو":
-        post_id = context.user_data.get("editing_post_id")
-        context.user_data.pop("editing_post_id", None)
-        await update.message.reply_text(
-            Msg.CANCELLED,
-            reply_markup=main_menu(update.effective_user.id, is_owner=(update.effective_user.id == OWNER_ID))
-        )
-        return ConversationHandler.END
+async def edit_time_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Legacy fallback — redirect to main callback handler."""
+    return await posts_callback_handler(update, context)
 
-    parsed = parse_time(update.message.text)
-    if not parsed:
-        await update.message.reply_text(Msg.INVALID_TIME, parse_mode="HTML")
-        return EDIT_CUSTOM_TIME
 
-    time_str = f"{parsed.hour:02d}:{parsed.minute:02d}"
-    post_id = context.user_data.get("editing_post_id")
-    post = db.get_post(post_id)
-    if post:
-        old_date = parse_date(post["schedule_date"])
-        new_timestamp = to_timestamp(old_date, parsed)
-        db.update_schedule(post_id, post["schedule_date"], time_str, new_timestamp)
-        scheduler.reschedule_post(post_id, new_timestamp)
-        db.add_history_log(post_id, "time_changed", details=f"to {time_str}", user_id=update.effective_user.id)
-
-    await update.message.reply_text(Msg.POST_EDITED, reply_markup=None, parse_mode="HTML")
-    return ConversationHandler.END
+async def edit_date_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Legacy fallback — redirect to main callback handler."""
+    return await posts_callback_handler(update, context)
 
 
 async def _show_post_detail(query, context, post_id: int):
@@ -359,3 +374,53 @@ async def _show_post_detail(query, context, post_id: int):
     keyboard = post_detail_keyboard(post_id, post["status"])
     await query.edit_message_text(text, reply_markup=keyboard, parse_mode="HTML")
     return MANAGE_POST_DETAIL
+
+
+async def _show_edit_datetime(query, context):
+    """Show datetime edit screen."""
+    year = context.user_data.get("edit_year")
+    month = context.user_data.get("edit_month")
+    day = context.user_data.get("edit_day")
+    hour = context.user_data.get("edit_hour")
+
+    date_str = f"{day} {MONTH_NAMES.get(month, month)} {year}"
+    time_str = f"{hour:02d}:00"
+
+    await query.edit_message_text(
+        f"📅 <b>ویرایش تاریخ و ساعت</b>\n\n"
+        f"📅 تاریخ: <b>{date_str}</b>\n"
+        f"🕐 ساعت: <b>{time_str}</b>\n\n"
+        f"روی هر دکمه کلیک کن تا تغییر دهی:",
+        reply_markup=datetime_keyboard(year, month, day, hour, prefix="edt"),
+        parse_mode="HTML"
+    )
+    return EDIT_POST_DATE
+
+
+async def _show_edit_datetime_from_text(update, context):
+    """Show datetime edit screen from text input."""
+    year = context.user_data.get("edit_year")
+    month = context.user_data.get("edit_month")
+    day = context.user_data.get("edit_day")
+    hour = context.user_data.get("edit_hour")
+
+    date_str = f"{day} {MONTH_NAMES.get(month, month)} {year}"
+    time_str = f"{hour:02d}:00"
+
+    await update.message.reply_text(
+        f"📅 <b>ویرایش تاریخ و ساعت</b>\n\n"
+        f"📅 تاریخ: <b>{date_str}</b>\n"
+        f"🕐 ساعت: <b>{time_str}</b>\n\n"
+        f"روی هر دکمه کلیک کن تا تغییر دهی:",
+        reply_markup=datetime_keyboard(year, month, day, hour, prefix="edt"),
+        parse_mode="HTML"
+    )
+    return EDIT_POST_DATE
+
+
+def _month_name_to_num(name: str) -> int:
+    """Convert month name to number."""
+    for num, mname in MONTH_NAMES.items():
+        if mname.lower() == name.lower():
+            return num
+    return now_tz().month

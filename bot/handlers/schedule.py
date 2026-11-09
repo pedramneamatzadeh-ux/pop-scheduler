@@ -21,7 +21,7 @@ from ..constants import (
 from ..keyboards import (
     source_channels_keyboard, dest_channels_keyboard,
     datetime_keyboard, months_keyboard, hours_keyboard,
-    cancel_keyboard, main_menu,
+    cancel_keyboard, inline_cancel_keyboard, main_menu,
 )
 from ..config import OWNER_ID
 from ..utils import (
@@ -86,10 +86,15 @@ async def select_source_callback(update: Update, context: ContextTypes.DEFAULT_T
     context.user_data["source_channel"] = channel_id
     context.user_data["source_channel_title"] = channel_title
 
-    # Ask for message IDs
+    # Edit the inline message to show confirmation (no buttons)
     await query.edit_message_text(
-        Msg.ENTER_MESSAGE_IDS,
-        reply_markup=cancel_keyboard(),
+        f"✅ کانال مبدأ: <b>{channel_title}</b>\n\n"
+        f"حالا آیدی پیام‌ها را وارد کن.\n\n"
+        f"<b>فرمت‌های مجاز:</b>\n"
+        f"• تکی: <code>10</code>\n"
+        f"• بازه: <code>10-15</code> (از 10 تا 15)\n"
+        f"• چندتایی: <code>10,13,17</code>\n"
+        f"• ترکیبی: <code>10,13-15,17</code>",
         parse_mode="HTML"
     )
     return SELECT_MESSAGE_IDS
@@ -159,9 +164,12 @@ async def datetime_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "dt:day":
         await query.answer()
+        # Edit inline message to show prompt (no reply keyboard on inline)
         await query.edit_message_text(
-            Msg.ENTER_DAY,
-            reply_markup=cancel_keyboard(),
+            f"📆 <b>روز</b>\n\n"
+            f"روز را وارد کن (مثال: <code>15</code>):\n\n"
+            f"یا برای لغو دکمه زیر را بزن.",
+            reply_markup=inline_cancel_keyboard(),
             parse_mode="HTML"
         )
         return INPUT_DAY
@@ -254,6 +262,19 @@ async def datetime_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["hour"] = hour
         await query.answer()
         return await _show_datetime(query, context)
+
+    if data == "cancel":
+        # Cancel from inline keyboard during text input
+        await query.answer()
+        context.user_data.clear()
+        await query.edit_message_text(Msg.CANCELLED)
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=Msg.WELCOME,
+            reply_markup=main_menu(query.from_user.id, is_owner=(query.from_user.id == OWNER_ID)),
+            parse_mode="HTML"
+        )
+        return ConversationHandler.END
 
     await query.answer()
     return SELECT_DATETIME
