@@ -125,6 +125,7 @@ def datetime_keyboard(
     month: int, 
     day: int, 
     hour: int,
+    minute: int = 0,
     prefix: str = "dt"
 ) -> InlineKeyboardMarkup:
     """
@@ -145,7 +146,7 @@ def datetime_keyboard(
             ib(f"📆 {day} (از 1 تا {max_day})", callback_data=f"{prefix}:day"),
         ],
         [
-            ib(f"🕐 {hour:02d}:00", callback_data=f"{prefix}:hour"),
+            ib(f"🕐 {hour:02d}:{minute:02d}", callback_data=f"{prefix}:hour"),
         ],
         [
             ib("✅ ثبت", callback_data=f"{prefix}:submit", style="success"),

@@ -172,10 +172,10 @@ def now_tz() -> datetime:
     return datetime.now(get_tz())
 
 
-def to_timestamp(year: int, month: int, day: int, hour: int) -> float:
+def to_timestamp(year: int, month: int, day: int, hour: int, minute: int = 0) -> float:
     """تبدیل اجزای تاریخ به timestamp."""
     tz = get_tz()
-    dt = datetime(year, month, day, hour, 0, 0, tzinfo=tz)
+    dt = datetime(year, month, day, hour, minute, 0, tzinfo=tz)
     return dt.timestamp()
 
 

@@ -184,6 +184,19 @@ async def datetime_callback(
         )
         return SELECT_DATETIME
     
+    # ── تأیید انتخاب ماه جدید (از months_keyboard) ──────────────────────
+    if data.startswith("m:"):
+        await query.answer()
+        month = int(data.replace("m:", ""))
+        context.user_data["month"] = month
+        # اگر روز فعلی بیشتر از تعداد روزهای ماه جدید است، آن را اصلاح کن
+        year = context.user_data.get("year", now_tz().year)
+        max_day = get_month_days(year, month)
+        current_day = context.user_data.get("day", 1)
+        if current_day > max_day:
+            context.user_data["day"] = max_day
+        return await _show_datetime(query, context)
+    
     # ── انتخاب سال ─────────────────────────────────────────────────────
     if data == "dt:year":
         await query.answer()
@@ -243,11 +256,12 @@ async def datetime_callback(
         month = context.user_data.get("month")
         day = context.user_data.get("day")
         hour = context.user_data.get("hour")
+        minute = context.user_data.get("minute", 0)
         
         # اعتبارسنجی زمان آینده
         now = now_tz()
         try:
-            timestamp = to_timestamp(year, month, day, hour)
+            timestamp = to_timestamp(year, month, day, hour, minute)
             from datetime import datetime
             target_dt = datetime.fromtimestamp(timestamp, tz=now.tzinfo)
             
@@ -278,7 +292,7 @@ async def datetime_callback(
         source = context.user_data.get("source_channel_title", "")
         
         date_str = f"{day} {MONTH_NAMES.get(month, month)} {year}"
-        time_str = f"{hour:02d}:00"
+        time_str = f"{hour:02d}:{minute:02d}"
         
         context.user_data["schedule_date"] = date_str
         context.user_data["schedule_time"] = time_str
@@ -404,13 +418,6 @@ async def input_hour(
     if query:
         data = query.data
         
-        # انتخاب از دکمه‌های پیش‌فرض
-        if data.startswith("h:"):
-            await query.answer()
-            hour = int(data.replace("h:", ""))
-            context.user_data["hour"] = hour
-            return await _show_datetime(query, context)
-        
         # درخواست ساعت دلخواه
         if data == "h:custom":
             await query.answer()
@@ -423,11 +430,12 @@ async def input_hour(
             )
             return INPUT_HOUR
         
-        # بازگشت از انتخاب ماه
-        if data.startswith("m:"):
+        # انتخاب از دکمه‌های پیش‌فرض
+        if data.startswith("h:"):
             await query.answer()
-            month = int(data.replace("m:", ""))
-            context.user_data["month"] = month
+            hour = int(data.replace("h:", ""))
+            context.user_data["hour"] = hour
+            context.user_data["minute"] = 0  # ساعت‌های پیش‌فرض دقیقه 0 دارند
             return await _show_datetime(query, context)
         
         # بازگشت
@@ -465,7 +473,7 @@ async def input_hour(
         return INPUT_HOUR  # بازگشت به همین state
     
     context.user_data["hour"] = hour
-    # Note: فعلاً minute را ذخیره نمی‌کنیم، فقط hour
+    context.user_data["minute"] = minute  # ذخیره دقیقه
     return await _show_datetime_from_text(update, context)
 
 
@@ -566,13 +574,14 @@ async def _show_datetime(query, context) -> int:
     month = context.user_data.get("month")
     day = context.user_data.get("day")
     hour = context.user_data.get("hour")
+    minute = context.user_data.get("minute", 0)
     
     date_str = f"{day} {MONTH_NAMES.get(month, month)} {year}"
-    time_str = f"{hour:02d}:00"
+    time_str = f"{hour:02d}:{minute:02d}"
     
     await query.edit_message_text(
         Msg.SELECT_DATETIME_MSG.format(date=date_str, time=time_str),
-        reply_markup=datetime_keyboard(year, month, day, hour),
+        reply_markup=datetime_keyboard(year, month, day, hour, minute),
         parse_mode="HTML"
     )
     return SELECT_DATETIME
@@ -584,13 +593,14 @@ async def _show_datetime_from_text(update, context) -> int:
     month = context.user_data.get("month")
     day = context.user_data.get("day")
     hour = context.user_data.get("hour")
+    minute = context.user_data.get("minute", 0)
     
     date_str = f"{day} {MONTH_NAMES.get(month, month)} {year}"
-    time_str = f"{hour:02d}:00"
+    time_str = f"{hour:02d}:{minute:02d}"
     
     await update.message.reply_text(
         Msg.SELECT_DATETIME_MSG.format(date=date_str, time=time_str),
-        reply_markup=datetime_keyboard(year, month, day, hour),
+        reply_markup=datetime_keyboard(year, month, day, hour, minute),
         parse_mode="HTML"
     )
     return SELECT_DATETIME
