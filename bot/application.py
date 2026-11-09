@@ -72,9 +72,7 @@ def build_application() -> Application:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_message_ids),
             ],
             SELECT_DATETIME: [
-                CallbackQueryHandler(datetime_callback, pattern=r"^dt:"),
-                CallbackQueryHandler(datetime_callback, pattern=r"^m:"),
-                CallbackQueryHandler(datetime_callback, pattern=r"^h:"),
+                CallbackQueryHandler(datetime_callback, pattern=r"^(dt:|m:|h:)"),
                 CallbackQueryHandler(lambda u, c: _cancel_inline(u, c), pattern=r"^cancel$"),
             ],
             INPUT_DAY: [
@@ -89,7 +87,6 @@ def build_application() -> Application:
             CommandHandler("cancel", cancel_command),
             MessageHandler(filters.Regex("^❌ لغو$"), cancel_command),
         ],
-        per_message=True,
         allow_reentry=True,
     )
     app.add_handler(schedule_conv)
@@ -124,7 +121,6 @@ def build_application() -> Application:
             CommandHandler("cancel", cancel_command),
             MessageHandler(filters.Regex("^❌ لغو$"), cancel_command),
         ],
-        per_message=True,
         allow_reentry=True,
     )
     app.add_handler(posts_conv)
@@ -143,7 +139,6 @@ def build_application() -> Application:
             CommandHandler("cancel", cancel_command),
             MessageHandler(filters.Regex("^❌ لغو$"), cancel_command),
         ],
-        per_message=True,
         allow_reentry=True,
     )
     app.add_handler(history_conv)
@@ -171,26 +166,23 @@ def build_application() -> Application:
             CommandHandler("cancel", cancel_command),
             MessageHandler(filters.Regex("^❌ لغو$"), cancel_command),
         ],
-        per_message=True,
         allow_reentry=True,
     )
     app.add_handler(settings_conv)
 
-    # ── Main menu handler (catch-all for text) ──────────────────────────────
+    # ── Main menu handler (for "🏠 منوی اصلی" button) ───────────────────────
     app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND & (
-            filters.Regex("^🏠 منوی اصلی$")
-        ),
+        filters.Regex("^🏠 منوی اصلی$"),
         main_menu_handler,
     ))
 
-    # ── Main menu button (standalone) ───────────────────────────────────────
+    # ── Main menu callback (from inline keyboards) ──────────────────────────
     app.add_handler(CallbackQueryHandler(go_to_main_menu, pattern=r"^main_menu$"))
 
     # ── Global error handler ────────────────────────────────────────────────
     app.add_error_handler(global_error_handler)
 
-    logger.info("Application built with %d handlers", len(app.handlers))
+    logger.info("Application built with %d handler groups", len(app.handlers))
     return app
 
 
@@ -213,16 +205,16 @@ async def _cancel_inline(update, context):
     await query.answer()
     context.user_data.clear()
 
-    from .constants import Msg, OWNER_ID
+    from .constants import Msg
     from .keyboards import main_menu
-    from .config import OWNER_ID as _OID
+    from .config import OWNER_ID
     user_id = query.from_user.id
 
     await query.edit_message_text(Msg.CANCELLED, reply_markup=None)
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=Msg.WELCOME,
-        reply_markup=main_menu(user_id, is_owner=(user_id == _OID)),
+        reply_markup=main_menu(user_id, is_owner=(user_id == OWNER_ID)),
         parse_mode="HTML"
     )
     return ConversationHandler.END
