@@ -145,8 +145,8 @@ class SettingsDB:
         raw = self.core.get_setting("default_hours", None)
         if raw:
             return json.loads(raw)
-        from ..config import DEFAULT_HOURS
-        return DEFAULT_HOURS
+        from ..config import Config
+        return Config.DEFAULT_HOURS
 
     def set_default_hours(self, hours: list[int]):
         """Set default posting hours."""

@@ -1,71 +1,91 @@
 """
-Base handlers — /start, main menu, cancel, error handler.
+Handlerهای پایه: /start, /cancel, منوی اصلی, و error handler.
 """
 import logging
+
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
-from ..constants import Msg, MAIN_MENU
+from ..config import config
+from ..constants import Msg
+from ..database import db
 from ..keyboards import main_menu
-from ..config import OWNER_ID
-from ..utils import is_admin_or_owner
+
 
 logger = logging.getLogger(__name__)
 
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /start command — show main menu."""
+async def start_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """مدیریت دستور /start."""
     user = update.effective_user
     user_id = user.id
-
-    # Check if user is admin or owner
-    if not is_admin_or_owner(user_id):
+    
+    # بررسی دسترسی
+    is_owner = (user_id == config.OWNER_ID)
+    is_admin = db.is_admin(user_id)
+    
+    if not is_owner and not is_admin:
         await update.message.reply_text(Msg.ACCESS_DENIED)
         return
-
-    # Clear any pending state
+    
+    # پاک کردن state قبلی
     context.user_data.clear()
-
+    
     await update.message.reply_text(
         Msg.WELCOME,
-        reply_markup=main_menu(user_id, is_owner=(user_id == OWNER_ID)),
+        reply_markup=main_menu(user_id, is_owner=is_owner),
         parse_mode="HTML"
     )
 
 
-async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle '🏠 منوی اصلی' button press."""
-    user_id = update.effective_user.id
-    context.user_data.clear()
-
-    await update.message.reply_text(
-        Msg.WELCOME,
-        reply_markup=main_menu(user_id, is_owner=(user_id == OWNER_ID)),
-        parse_mode="HTML"
-    )
-
-
-async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /cancel command."""
+async def cancel_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    """مدیریت دستور /cancel."""
     context.user_data.clear()
     user_id = update.effective_user.id
-
+    is_owner = (user_id == config.OWNER_ID)
+    
     await update.message.reply_text(
         Msg.CANCELLED,
-        reply_markup=main_menu(user_id, is_owner=(user_id == OWNER_ID))
+        reply_markup=main_menu(user_id, is_owner=is_owner)
     )
     return ConversationHandler.END
 
 
-async def go_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Return to main menu (from inline callback queries)."""
+async def main_menu_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """مدیریت دکمه '🏠 منوی اصلی'."""
+    user_id = update.effective_user.id
+    is_owner = (user_id == config.OWNER_ID)
+    context.user_data.clear()
+    
+    await update.message.reply_text(
+        Msg.WELCOME,
+        reply_markup=main_menu(user_id, is_owner=is_owner),
+        parse_mode="HTML"
+    )
+
+
+async def go_to_main_menu(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """بازگشت به منوی اصلی از callback."""
     query = update.callback_query
     await query.answer()
     context.user_data.clear()
-
+    
     user_id = query.from_user.id
-
-    # Edit the inline message to remove buttons
+    is_owner = (user_id == config.OWNER_ID)
+    
+    # ویرایش پیام inline
     try:
         await query.edit_message_text(
             Msg.WELCOME,
@@ -73,26 +93,33 @@ async def go_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     except Exception:
-        pass  # Message might be too old to edit
-
-    # Send new message with reply keyboard
+        pass  # پیام ممکن است قدیمی باشد
+    
+    # ارسال پیام جدید با reply keyboard
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=Msg.WELCOME,
-        reply_markup=main_menu(user_id, is_owner=(user_id == OWNER_ID)),
+        reply_markup=main_menu(user_id, is_owner=is_owner),
         parse_mode="HTML"
     )
 
 
-async def global_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    """Global error handler — logs errors and notifies owner."""
-    logger.error("Exception while handling update: %s", context.error, exc_info=context.error)
-
-    # Notify owner
+async def global_error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """مدیریت خطای سراسری."""
+    logger.error(
+        "Exception while handling update: %s",
+        context.error,
+        exc_info=context.error
+    )
+    
+    # اطلاع به مالک
     try:
-        if OWNER_ID:
+        if config.OWNER_ID:
             await context.bot.send_message(
-                chat_id=OWNER_ID,
+                chat_id=config.OWNER_ID,
                 text=f"⚠️ <b>خطای غیرمنتظره:</b>\n\n<code>{str(context.error)[:500]}</code>",
                 parse_mode="HTML"
             )

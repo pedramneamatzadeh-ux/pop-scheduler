@@ -10,7 +10,7 @@ from ..constants import (
     Msg, VIEW_HISTORY, MAIN_MENU, STATUS_LABELS,
 )
 from ..keyboards import history_keyboard, main_menu
-from ..config import OWNER_ID
+from ..config import config
 from ..database import db
 from ..utils import format_history_item, paginate, is_admin_or_owner, format_message_ids
 
@@ -66,7 +66,7 @@ async def history_callback_handler(update: Update, context: ContextTypes.DEFAULT
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text=Msg.WELCOME,
-            reply_markup=main_menu(user_id, is_owner=(user_id == OWNER_ID)),
+            reply_markup=main_menu(user_id, is_owner=(user_id == config.OWNER_ID)),
             parse_mode="HTML"
         )
         return MAIN_MENU

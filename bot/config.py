@@ -1,36 +1,54 @@
 """
-Configuration management for Pop Scheduler Bot.
-Loads settings from .env file and provides centralized access.
+مدیریت تنظیمات ربات.
+بارگذاری از فایل .env و ارائه دسترسی متمرکز.
 """
 import os
-import sys
-from pathlib import Path
+from typing import List, Optional
+
 from dotenv import load_dotenv
 
-# Load .env from project root
-PROJECT_ROOT = Path(__file__).parent.parent
-load_dotenv(PROJECT_ROOT / ".env")
 
-# ── Required ────────────────────────────────────────────────────────────────
-BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
-OWNER_ID: int = int(os.getenv("OWNER_ID", "0"))
-DATABASE: str = os.getenv("DATABASE", "scheduler.db")
+# ریشه پروژه (پوشه‌ای که main.py در آن است) — مستقل از CWD اجرا
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# ── Optional (with defaults) ────────────────────────────────────────────────
-# NOTE: Channels and admins are managed from settings panel (DB), not env.
+load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
-# ── Default posting hours (24h format) ──────────────────────────────────────
-DEFAULT_HOURS: list[int] = [8, 11, 14, 17, 20, 23]
 
-# ── Timezone ────────────────────────────────────────────────────────────────
-TIMEZONE: str = os.getenv("TIMEZONE", "Europe/Berlin")
+class Config:
+    """کلاس تنظیمات ربات با type hints و validation."""
+    
+    DB_PATH: str = os.path.join(_PROJECT_ROOT, "scheduler.db")
+    DEFAULT_HOURS: List[int] = [8, 11, 14, 17, 20, 23]
+    TIMEZONE: str = "Europe/Berlin"
 
-# ── Validation ──────────────────────────────────────────────────────────────
-def validate() -> list[str]:
-    """Return list of missing required settings."""
-    errors = []
-    if not BOT_TOKEN:
-        errors.append("BOT_TOKEN is required in .env")
-    if not OWNER_ID:
-        errors.append("OWNER_ID is required in .env")
-    return errors
+    def __init__(self) -> None:
+        self.BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+        self.OWNER_ID: Optional[int] = self._parse_optional_id(
+            os.getenv("OWNER_ID")
+        )
+        self.TIMEZONE = os.getenv("TIMEZONE", self.TIMEZONE)
+
+    @staticmethod
+    def _parse_optional_id(raw: Optional[str]) -> Optional[int]:
+        """تبدیل رشته به آیدی عددی اختیاری."""
+        value = (raw or "").strip()
+        if value.isdigit():
+            return int(value)
+        return None
+
+    def validate(self) -> None:
+        """اعتبارسنجی تنظیمات ضروری."""
+        if not self.BOT_TOKEN or self.BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+            raise ValueError(
+                "لطفاً BOT_TOKEN را در فایل .env تنظیم کنید."
+            )
+
+        if self.OWNER_ID is None:
+            raise ValueError(
+                "لطفاً OWNER_ID (آیدی عددی تلگرام مالک) را "
+                "در فایل .env تنظیم کنید."
+            )
+
+
+# نمونه singleton برای دسترسی آسان
+config = Config()
