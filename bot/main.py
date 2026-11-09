@@ -49,6 +49,11 @@ def main():
     # Define post_init callback to start scheduler after event loop is ready
     async def post_init(application):
         """Start scheduler after event loop is running."""
+        # Set bot instance for delivery service
+        import bot.application as app_module
+        app_module.bot_instance = application.bot
+        logger.info("Bot instance set: %s", application.bot)
+        
         from bot.services.scheduler import scheduler
         scheduler.start()
         count = scheduler.reschedule_all_pending()

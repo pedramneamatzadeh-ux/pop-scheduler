@@ -70,7 +70,7 @@ from .handlers.history import (
 
 logger = logging.getLogger(__name__)
 
-# مرجع نمونه bot (در build تنظیم می‌شود)
+# مرجع نمونه bot (در post_init تنظیم می‌شود)
 bot_instance = None
 
 
@@ -78,9 +78,6 @@ def build_application() -> Application:
     """ساخت و پیکربندی Application."""
     builder = Application.builder().token(config.BOT_TOKEN)
     app = builder.build()
-    
-    global bot_instance
-    bot_instance = app.bot
     
     # ── دستورات پایه ──────────────────────────────────────────────────
     app.add_handler(CommandHandler("start", start_command))

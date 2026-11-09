@@ -112,11 +112,11 @@ async def posts_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
 
     if data.startswith("cancel_post:"):
         post_id = int(data.split(":")[1])
-        await query.answer("❌ لغو...")
+        await query.answer("⏸ غیرفعال...")
         scheduler.remove_post(post_id)
         from ..constants import STATUS_CANCELLED
         db.update_status(post_id, STATUS_CANCELLED)
-        db.add_history_log(post_id, "cancelled", user_id=user_id)
+        db.add_history_log(post_id, "disabled", user_id=user_id)
         await query.edit_message_text(Msg.POST_CANCELLED_MSG)
         await show_active_posts(update, context, page=0)
         return MANAGE_POSTS
