@@ -5,8 +5,7 @@ import re
 import logging
 from datetime import datetime, date, time, timezone
 from zoneinfo import ZoneInfo
-from telegram import Update, Message
-from typing import Any
+from telegram import Update
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,6 @@ def fmt_time(t: time) -> str:
 def parse_date(text: str) -> date | None:
     """Parse a date string (YYYY-MM-DD). Returns None on failure."""
     text = text.strip()
-    # Try multiple formats
     for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"):
         try:
             return datetime.strptime(text, fmt).date()
@@ -62,115 +60,109 @@ def parse_time(text: str) -> time | None:
     return None
 
 
-def to_timestamp(d: date, t: time, tz_name: str = None) -> float:
-    """Convert date + time to Unix timestamp in the configured timezone."""
+def parse_message_ids(text: str) -> list[int] | None:
+    """
+    Parse message IDs from text input.
+    Supports: single (10), range (10-15), multiple (10,13,17), combined (10,13-15,17)
+    Returns sorted unique list of IDs, or None if invalid.
+    """
+    text = text.strip()
+    if not text:
+        return None
+
+    # Normalize separators: comma, Persian comma, space
+    text = text.replace("،", ",").replace(" ", ",")
+
+    ids = set()
+
+    # Split by comma
+    parts = text.split(",")
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # Check for range (e.g., "10-15")
+        if "-" in part:
+            range_match = re.match(r"^(\d+)\s*-\s*(\d+)$", part)
+            if range_match:
+                start = int(range_match.group(1))
+                end = int(range_match.group(2))
+                if start > end:
+                    return None  # Invalid range
+                if start < 1 or end < 1:
+                    return None  # IDs must be positive
+                # Limit range size to prevent abuse
+                if end - start > 1000:
+                    return None
+                ids.update(range(start, end + 1))
+            else:
+                return None  # Invalid format
+        else:
+            # Single ID
+            try:
+                msg_id = int(part)
+                if msg_id < 1:
+                    return None
+                ids.add(msg_id)
+            except ValueError:
+                return None
+
+    if not ids:
+        return None
+
+    return sorted(ids)
+
+
+def format_message_ids(ids: list[int], max_display: int = 10) -> str:
+    """Format message IDs for display, with compression for ranges."""
+    if not ids:
+        return ""
+
+    if len(ids) <= max_display:
+        return ", ".join(str(i) for i in ids)
+
+    # Show first few and last few
+    shown = ids[:max_display // 2] + ids[-(max_display // 2):]
+    return ", ".join(str(i) for i in shown) + f" ... ({len(ids)} total)"
+
+
+def to_timestamp(year: int, month: int, day: int, hour: int, tz_name: str = None) -> float:
+    """Convert date components to Unix timestamp."""
     tz = get_tz(tz_name)
-    dt = datetime.combine(d, t, tzinfo=tz)
+    dt = datetime(year, month, day, hour, 0, 0, tzinfo=tz)
     return dt.timestamp()
 
 
 def format_schedule_display(post: dict) -> str:
     """Format a post for display in lists."""
-    from .constants import STATUS_LABELS, CONTENT_TYPE_LABELS
+    from .constants import STATUS_LABELS
     status = STATUS_LABELS.get(post["status"], post["status"])
-    content = CONTENT_TYPE_LABELS.get(post["content_type"], post["content_type"])
-    channel = post.get("target_channel_title") or post["target_channel"]
+    target = post.get("target_channel_title") or post["target_channel"]
+    msg_ids = post.get("message_ids", [])
+    msg_count = len(msg_ids)
     return (
-        f"🆔 <code>{post['id']}</code> — {channel}\n"
+        f"🆔 <code>{post['id']}</code> — {target}\n"
         f"📅 {post['schedule_date']} — {post['schedule_time']} — {status}\n"
-        f"📄 {content}"
+        f"📨 {msg_count} پیام"
     )
 
 
 def format_history_item(post: dict) -> str:
     """Format a history item for display."""
-    from .constants import STATUS_LABELS, CONTENT_TYPE_LABELS
+    from .constants import STATUS_LABELS
     status = STATUS_LABELS.get(post["status"], post["status"])
-    content = CONTENT_TYPE_LABELS.get(post["content_type"], post["content_type"])
-    channel = post.get("target_channel_title") or post["target_channel"]
+    target = post.get("target_channel_title") or post["target_channel"]
+    msg_ids = post.get("message_ids", [])
+    msg_count = len(msg_ids)
     sent_at = post.get("sent_at") or post.get("updated_at") or "نامشخص"
     return (
-        f"🆔 <code>{post['id']}</code> — {channel}\n"
+        f"🆔 <code>{post['id']}</code> — {target}\n"
         f"📅 {post['schedule_date']} — {post['schedule_time']}\n"
-        f"📄 {content} — {status}\n"
+        f"📨 {msg_count} پیام — {status}\n"
         f"🕐 {sent_at}"
     )
-
-
-def extract_message_data(message: Message) -> tuple[dict, str]:
-    """
-    Extract message data for storage.
-    Returns (message_data dict, content_type string).
-    """
-    data = {
-        "text": message.text or message.caption or "",
-        "parse_mode": message.parse_mode,
-        "entities": [e.to_dict() for e in (message.entities or [])] if message.entities else [],
-        "caption_entities": [e.to_dict() for e in (message.caption_entities or [])] if message.caption_entities else [],
-    }
-
-    if message.photo:
-        # Take the largest photo
-        photo = message.photo[-1]
-        data["file_id"] = photo.file_id
-        data["file_unique_id"] = photo.file_unique_id
-        data["width"] = photo.width
-        data["height"] = photo.height
-        return data, "photo"
-
-    elif message.video:
-        data["file_id"] = message.video.file_id
-        data["file_unique_id"] = message.video.file_unique_id
-        data["duration"] = message.video.duration
-        data["width"] = message.video.width
-        data["height"] = message.video.height
-        return data, "video"
-
-    elif message.document:
-        data["file_id"] = message.document.file_id
-        data["file_unique_id"] = message.document.file_unique_id
-        data["file_name"] = message.document.file_name
-        data["mime_type"] = message.document.mime_type
-        return data, "document"
-
-    elif message.animation:
-        data["file_id"] = message.animation.file_id
-        data["file_unique_id"] = message.animation.file_unique_id
-        data["duration"] = message.animation.duration
-        return data, "animation"
-
-    elif message.audio:
-        data["file_id"] = message.audio.file_id
-        data["file_unique_id"] = message.audio.file_unique_id
-        data["duration"] = message.audio.duration
-        data["title"] = message.audio.title
-        return data, "audio"
-
-    elif message.voice:
-        data["file_id"] = message.voice.file_id
-        data["file_unique_id"] = message.voice.file_unique_id
-        data["duration"] = message.voice.duration
-        return data, "voice"
-
-    elif message.video_note:
-        data["file_id"] = message.video_note.file_id
-        data["file_unique_id"] = message.video_note.file_unique_id
-        data["duration"] = message.video_note.duration
-        return data, "video_note"
-
-    elif message.sticker:
-        data["file_id"] = message.sticker.file_id
-        data["file_unique_id"] = message.sticker.file_unique_id
-        return data, "sticker"
-
-    elif message.text:
-        return data, "text"
-
-    else:
-        # Fallback
-        data["message_id"] = message.message_id
-        data["chat_id"] = message.chat_id if message.chat else None
-        return data, "text"
 
 
 def is_admin_or_owner(user_id: int) -> bool:

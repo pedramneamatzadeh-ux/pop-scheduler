@@ -12,8 +12,9 @@ from telegram.ext import (
 )
 
 from .constants import (
-    MAIN_MENU, AWAITING_POST, SELECT_CHANNEL, SELECT_DATE, SELECT_TIME,
-    CUSTOM_TIME, CONFIRM_SCHEDULE,
+    MAIN_MENU,
+    SELECT_SOURCE_CHANNEL, SELECT_MESSAGE_IDS, SELECT_DATETIME,
+    INPUT_YEAR, INPUT_DAY, SELECT_TARGET_CHANNEL, CONFIRM_SCHEDULE,
     MANAGE_POSTS, MANAGE_POST_DETAIL, EDIT_POST_DATE, EDIT_POST_TIME, EDIT_CUSTOM_TIME,
     SETTINGS_MENU, ADD_CHANNEL, ADD_ADMIN, CUSTOM_HOUR_INPUT,
     VIEW_HISTORY,
@@ -23,10 +24,8 @@ from .handlers.base import (
     global_error_handler,
 )
 from .handlers.schedule import (
-    start_schedule, receive_post, select_channel_callback,
-    select_date_callback, receive_custom_date,
-    select_time_callback, receive_custom_time,
-    confirm_schedule_callback,
+    start_schedule, select_source_callback, receive_message_ids,
+    datetime_callback, input_day, select_target_callback,
 )
 from .handlers.posts import (
     show_active_posts, posts_callback_handler,
@@ -59,39 +58,31 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("cancel", cancel_command))
 
-    # ── Schedule conversation ───────────────────────────────────────────────
+    # ── Schedule conversation (new flow) ────────────────────────────────────
     schedule_conv = ConversationHandler(
         entry_points=[
             MessageHandler(filters.Regex("^📅 زمان‌بندی جدید$"), start_schedule),
         ],
         states={
-            AWAITING_POST: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_post),
-                MessageHandler(
-                    filters.PHOTO | filters.VIDEO | filters.Document.ALL |
-                    filters.AUDIO | filters.VOICE | filters.VIDEO_NOTE |
-                    filters.Sticker.ALL | filters.ANIMATION,
-                    receive_post
-                ),
-            ],
-            SELECT_CHANNEL: [
-                CallbackQueryHandler(select_channel_callback, pattern=r"^ch:"),
+            SELECT_SOURCE_CHANNEL: [
+                CallbackQueryHandler(select_source_callback, pattern=r"^src:"),
                 CallbackQueryHandler(lambda u, c: _cancel_inline(u, c), pattern=r"^cancel$"),
             ],
-            SELECT_DATE: [
-                CallbackQueryHandler(select_date_callback, pattern=r"^d:"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_custom_date),
+            SELECT_MESSAGE_IDS: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_message_ids),
+            ],
+            SELECT_DATETIME: [
+                CallbackQueryHandler(datetime_callback, pattern=r"^dt:"),
+                CallbackQueryHandler(datetime_callback, pattern=r"^m:"),
+                CallbackQueryHandler(datetime_callback, pattern=r"^h:"),
                 CallbackQueryHandler(lambda u, c: _cancel_inline(u, c), pattern=r"^cancel$"),
             ],
-            SELECT_TIME: [
-                CallbackQueryHandler(select_time_callback, pattern=r"^t:"),
+            INPUT_DAY: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, input_day),
+            ],
+            SELECT_TARGET_CHANNEL: [
+                CallbackQueryHandler(select_target_callback, pattern=r"^dst:"),
                 CallbackQueryHandler(lambda u, c: _cancel_inline(u, c), pattern=r"^cancel$"),
-            ],
-            CUSTOM_TIME: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_custom_time),
-            ],
-            CONFIRM_SCHEDULE: [
-                CallbackQueryHandler(confirm_schedule_callback, pattern=r"^confirm:"),
             ],
         },
         fallbacks=[

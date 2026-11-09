@@ -1,14 +1,14 @@
 """
 Keyboard builders for Pop Scheduler Bot.
 """
-from datetime import date, timedelta
+from datetime import date
 from telegram import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
-from .utils import fmt_date
+from .constants import MONTH_NAMES, MONTH_NAMES_SHORT, QUICK_HOURS
 
 
 def main_menu(user_id: int, is_owner: bool = False) -> ReplyKeyboardMarkup:
@@ -34,113 +34,125 @@ def cancel_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def back_to_menu_keyboard() -> ReplyKeyboardMarkup:
-    """Back to main menu keyboard."""
-    return ReplyKeyboardMarkup(
-        [[KeyboardButton(text="🏠 منوی اصلی")]],
-        resize_keyboard=True,
-    )
+# ── Source/Destination Channel Keyboards ────────────────────────────────────
 
-
-# ── Inline Keyboards ────────────────────────────────────────────────────────
-
-def channel_selection_keyboard(channels: list[dict]) -> InlineKeyboardMarkup:
-    """Channel selection inline keyboard."""
+def source_channels_keyboard(channels: list[dict]) -> InlineKeyboardMarkup:
+    """Source channels selection keyboard."""
     buttons = []
     for ch in channels:
         title = ch.get("title") or ch.get("username") or ch["channel_id"]
         buttons.append([
             InlineKeyboardButton(
-                text=f"📢 {title}",
-                callback_data=f"ch:{ch['channel_id']}"
+                text=f"📥 {title}",
+                callback_data=f"src:{ch['channel_id']}"
             )
         ])
-    buttons.append([
-        InlineKeyboardButton(text="❌ لغو", callback_data="cancel")
-    ])
+    buttons.append([InlineKeyboardButton(text="❌ لغو", callback_data="cancel")])
     return InlineKeyboardMarkup(buttons)
 
 
-def date_keyboard(tz_name: str = None) -> InlineKeyboardMarkup:
-    """Date selection keyboard with today, tomorrow, day after + custom."""
-    from .utils import now_tz
-    today = now_tz(tz_name).date()
+def dest_channels_keyboard(channels: list[dict]) -> InlineKeyboardMarkup:
+    """Destination channels selection keyboard."""
+    buttons = []
+    for ch in channels:
+        title = ch.get("title") or ch.get("username") or ch["channel_id"]
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"📤 {title}",
+                callback_data=f"dst:{ch['channel_id']}"
+            )
+        ])
+    buttons.append([InlineKeyboardButton(text="❌ لغو", callback_data="cancel")])
+    return InlineKeyboardMarkup(buttons)
+
+
+# ── Date/Time Keyboards ─────────────────────────────────────────────────────
+
+def datetime_keyboard(year: int, month: int, day: int, hour: int) -> InlineKeyboardMarkup:
+    """
+    Main datetime selection keyboard.
+    Shows current selections with buttons to change each.
+    """
+    month_name = MONTH_NAMES.get(month, str(month))
+    date_str = f"{day} {month_name} {year}"
+    time_str = f"{hour:02d}:00"
 
     buttons = [
         [
             InlineKeyboardButton(
-                text=f"📌 امروز ({fmt_date(today)})",
-                callback_data=f"d:{fmt_date(today)}"
-            )
-        ],
-        [
+                text=f"🗓 {month_name} {year}",
+                callback_data="dt:month"
+            ),
             InlineKeyboardButton(
-                text=f"📌 فردا ({fmt_date(today + timedelta(days=1))})",
-                callback_data=f"d:{fmt_date(today + timedelta(days=1))}"
-            )
-        ],
-        [
+                text=f"📆 {day}",
+                callback_data="dt:day"
+            ),
             InlineKeyboardButton(
-                text=f"📌 پس‌فردا ({fmt_date(today + timedelta(days=2))})",
-                callback_data=f"d:{fmt_date(today + timedelta(days=2))}"
-            )
+                text=f"🕐 {time_str}",
+                callback_data="dt:hour"
+            ),
         ],
         [
-            InlineKeyboardButton(
-                text="✏️ انتخاب تاریخ دلخواه",
-                callback_data="d:custom"
-            )
+            InlineKeyboardButton(text="✅ ثبت", callback_data="dt:submit"),
         ],
         [
-            InlineKeyboardButton(text="❌ لغو", callback_data="cancel")
+            InlineKeyboardButton(text="❌ لغو", callback_data="cancel"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
 
 
-def time_keyboard(hours: list[int]) -> InlineKeyboardMarkup:
-    """Time selection keyboard with preset hours."""
+def months_keyboard(current_month: int) -> InlineKeyboardMarkup:
+    """Months selection keyboard (3 per row)."""
     buttons = []
-    # Two hours per row
     row = []
-    for h in sorted(hours):
-        row.append(
-            InlineKeyboardButton(
-                text=f"🕐 {h:02d}:00",
-                callback_data=f"t:{h:02d}:00"
-            )
-        )
-        if len(row) == 2:
+    for m in range(1, 13):
+        month_name = MONTH_NAMES_SHORT[m]
+        # Checkmark for current month
+        prefix = "✅ " if m == current_month else ""
+        row.append(InlineKeyboardButton(
+            text=f"{prefix}{month_name}",
+            callback_data=f"m:{m}"
+        ))
+        if len(row) == 3:
             buttons.append(row)
             row = []
     if row:
         buttons.append(row)
 
-    buttons.append([
-        InlineKeyboardButton(text="✏️ ساعت دلخواه", callback_data="t:custom")
-    ])
-    buttons.append([
-        InlineKeyboardButton(text="❌ لغو", callback_data="cancel")
-    ])
+    buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="dt:back")])
     return InlineKeyboardMarkup(buttons)
 
 
-def confirm_keyboard() -> InlineKeyboardMarkup:
-    """Confirm/cancel keyboard."""
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(text="✅ تأیید", callback_data="confirm:yes"),
-            InlineKeyboardButton(text="❌ لغو", callback_data="confirm:no"),
-        ]
-    ])
+def hours_keyboard(hours: list[int], current_hour: int = None) -> InlineKeyboardMarkup:
+    """Hours selection keyboard (3 per row)."""
+    buttons = []
+    row = []
+    for h in sorted(hours):
+        prefix = "✅ " if h == current_hour else ""
+        row.append(InlineKeyboardButton(
+            text=f"{prefix}{h:02d}:00",
+            callback_data=f"h:{h}"
+        ))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
 
+    buttons.append([InlineKeyboardButton(text="🔙 بازگشت", callback_data="dt:back")])
+    return InlineKeyboardMarkup(buttons)
+
+
+# ── Post List Keyboards ─────────────────────────────────────────────────────
 
 def post_list_keyboard(posts: list[dict], page: int, total_pages: int) -> InlineKeyboardMarkup:
     """Post list with action buttons."""
     buttons = []
     for post in posts:
-        channel = post.get("target_channel_title") or post["target_channel"]
-        label = f"🆔{post['id']} — {channel} — {post['schedule_date']} {post['schedule_time']}"
+        target = post.get("target_channel_title") or post["target_channel"]
+        msg_count = len(post.get("message_ids", []))
+        label = f"🆔{post['id']} — {target} — {post['schedule_date']} {post['schedule_time']} ({msg_count})"
         if len(label) > 60:
             label = label[:57] + "..."
         buttons.append([
@@ -172,7 +184,7 @@ def post_detail_keyboard(post_id: int, status: str = "pending") -> InlineKeyboar
             InlineKeyboardButton(text="🕐 ویرایش ساعت", callback_data=f"edit_time:{post_id}"),
         ])
         buttons.append([
-            InlineKeyboardButton(text="📢 تغییر کانال", callback_data=f"edit_ch:{post_id}"),
+            InlineKeyboardButton(text="📢 تغییر مقصد", callback_data=f"edit_ch:{post_id}"),
         ])
         buttons.append([
             InlineKeyboardButton(text="🗑 حذف", callback_data=f"del:{post_id}"),
@@ -196,9 +208,10 @@ def history_keyboard(posts: list[dict], page: int, total_pages: int) -> InlineKe
     """History list keyboard."""
     buttons = []
     for post in posts:
-        channel = post.get("target_channel_title") or post["target_channel"]
+        target = post.get("target_channel_title") or post["target_channel"]
         status_icon = "✅" if post["status"] == "sent" else "❌"
-        label = f"{status_icon} 🆔{post['id']} — {channel} — {post['schedule_date']}"
+        msg_count = len(post.get("message_ids", []))
+        label = f"{status_icon} 🆔{post['id']} — {target} — {post['schedule_date']} ({msg_count})"
         if len(label) > 60:
             label = label[:57] + "..."
         buttons.append([
@@ -221,37 +234,69 @@ def history_keyboard(posts: list[dict], page: int, total_pages: int) -> InlineKe
     return InlineKeyboardMarkup(buttons)
 
 
+# ── Settings Keyboards ──────────────────────────────────────────────────────
+
 def settings_keyboard(is_owner: bool = False) -> InlineKeyboardMarkup:
-    """Settings menu keyboard."""
+    """Settings menu keyboard (only for owner)."""
     buttons = [
         [
             InlineKeyboardButton(text="📢 کانال‌ها", callback_data="st:channels"),
             InlineKeyboardButton(text="🕐 ساعت‌های پیش‌فرض", callback_data="st:hours"),
         ],
-    ]
-    if is_owner:
-        buttons.append([
+        [
             InlineKeyboardButton(text="👥 مدیران", callback_data="st:admins"),
-        ])
-    buttons.append([
-        InlineKeyboardButton(text="🏠 منوی اصلی", callback_data="main_menu"),
-    ])
+        ],
+        [
+            InlineKeyboardButton(text="🏠 منوی اصلی", callback_data="main_menu"),
+        ],
+    ]
     return InlineKeyboardMarkup(buttons)
 
 
-def channels_manage_keyboard(channels: list[dict]) -> InlineKeyboardMarkup:
-    """Channel management keyboard."""
+def channels_type_keyboard() -> InlineKeyboardMarkup:
+    """Channel type selection keyboard."""
+    buttons = [
+        [
+            InlineKeyboardButton(text="📥 کانال‌های مبدأ", callback_data="st:source_channels"),
+            InlineKeyboardButton(text="📤 کانال‌های مقصد", callback_data="st:dest_channels"),
+        ],
+        [
+            InlineKeyboardButton(text="🔙 بازگشت", callback_data="st:back"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def source_channels_manage_keyboard(channels: list[dict]) -> InlineKeyboardMarkup:
+    """Source channels management keyboard."""
     buttons = []
     for ch in channels:
         title = ch.get("title") or ch.get("username") or ch["channel_id"]
         buttons.append([
-            InlineKeyboardButton(text=f"🗑 {title}", callback_data=f"rmch:{ch['channel_id']}")
+            InlineKeyboardButton(text=f"🗑 {title}", callback_data=f"rmsrc:{ch['channel_id']}")
         ])
     buttons.append([
-        InlineKeyboardButton(text="➕ افزودن کانال", callback_data="add_channel"),
+        InlineKeyboardButton(text="➕ افزودن کانال مبدأ", callback_data="add_source"),
     ])
     buttons.append([
-        InlineKeyboardButton(text="🔙 بازگشت", callback_data="st:back"),
+        InlineKeyboardButton(text="🔙 بازگشت", callback_data="st:channels"),
+    ])
+    return InlineKeyboardMarkup(buttons)
+
+
+def dest_channels_manage_keyboard(channels: list[dict]) -> InlineKeyboardMarkup:
+    """Destination channels management keyboard."""
+    buttons = []
+    for ch in channels:
+        title = ch.get("title") or ch.get("username") or ch["channel_id"]
+        buttons.append([
+            InlineKeyboardButton(text=f"🗑 {title}", callback_data=f"rmdst:{ch['channel_id']}")
+        ])
+    buttons.append([
+        InlineKeyboardButton(text="➕ افزودن کانال مقصد", callback_data="add_dest"),
+    ])
+    buttons.append([
+        InlineKeyboardButton(text="🔙 بازگشت", callback_data="st:channels"),
     ])
     return InlineKeyboardMarkup(buttons)
 

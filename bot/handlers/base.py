@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
 from ..constants import Msg, MAIN_MENU
-from ..keyboards import main_menu, back_to_menu_keyboard
+from ..keyboards import main_menu
 from ..config import OWNER_ID
 from ..utils import is_admin_or_owner
 

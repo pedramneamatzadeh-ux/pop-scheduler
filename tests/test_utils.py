@@ -38,12 +38,41 @@ def test_parse_time():
     assert parse_time("") is None
 
 
+def test_parse_message_ids():
+    from bot.utils import parse_message_ids
+
+    # Single ID
+    assert parse_message_ids("10") == [10]
+
+    # Range
+    assert parse_message_ids("10-15") == [10, 11, 12, 13, 14, 15]
+
+    # Multiple
+    assert parse_message_ids("10,13,17") == [10, 13, 17]
+
+    # Combined
+    assert parse_message_ids("10,13-15,17") == [10, 13, 14, 15, 17]
+
+    # With Persian comma
+    assert parse_message_ids("10،13،17") == [10, 13, 17]
+
+    # With spaces
+    assert parse_message_ids("10, 13, 17") == [10, 13, 17]
+
+    # Invalid
+    assert parse_message_ids("abc") is None
+    assert parse_message_ids("") is None
+    assert parse_message_ids("-5") is None  # negative
+    assert parse_message_ids("15-10") is None  # reversed range
+
+    # Duplicates removed
+    assert parse_message_ids("10,10,10") == [10]
+
+
 def test_to_timestamp():
     from bot.utils import to_timestamp
 
-    d = date(2026, 11, 15)
-    t = time(14, 0)
-    ts = to_timestamp(d, t, "UTC")
+    ts = to_timestamp(2026, 11, 15, 14, "UTC")
     assert isinstance(ts, float)
     assert ts > 0
 
@@ -96,6 +125,19 @@ def test_fmt_time():
 
     assert fmt_time(time(14, 0)) == "14:00"
     assert fmt_time(time(8, 5)) == "08:05"
+
+
+def test_format_message_ids():
+    from bot.utils import format_message_ids
+
+    assert format_message_ids([]) == ""
+    assert format_message_ids([10]) == "10"
+    assert format_message_ids([10, 11, 12]) == "10, 11, 12"
+
+    # Long list
+    long_list = list(range(1, 20))
+    result = format_message_ids(long_list, max_display=10)
+    assert "... (19 total)" in result
 
 
 if __name__ == "__main__":

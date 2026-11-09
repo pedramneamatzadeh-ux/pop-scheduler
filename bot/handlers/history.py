@@ -7,11 +7,12 @@ from telegram.ext import ContextTypes
 from telegram.error import BadRequest
 
 from ..constants import (
-    Msg, VIEW_HISTORY, MAIN_MENU, STATUS_LABELS, CONTENT_TYPE_LABELS,
+    Msg, VIEW_HISTORY, MAIN_MENU, STATUS_LABELS,
 )
 from ..keyboards import history_keyboard, main_menu
 from ..config import OWNER_ID
-from ..utils import format_history_item, paginate, is_admin_or_owner
+from ..database import db
+from ..utils import format_history_item, paginate, is_admin_or_owner, format_message_ids
 
 logger = logging.getLogger(__name__)
 
@@ -97,15 +98,17 @@ async def _show_history_detail(query, post_id: int):
         return VIEW_HISTORY
 
     status_label = STATUS_LABELS.get(post["status"], post["status"])
-    content_label = CONTENT_TYPE_LABELS.get(post["content_type"], post["content_type"])
+    message_ids = post.get("message_ids", [])
 
     text = Msg.POST_DETAIL.format(
         post_id=post["id"],
-        channel=post.get("target_channel_title") or post["target_channel"],
+        source=post.get("source_channel_title") or post.get("source_channel", "نامشخص"),
+        message_ids=format_message_ids(message_ids),
+        count=len(message_ids),
+        target=post.get("target_channel_title") or post["target_channel"],
         date=post["schedule_date"],
         time=post["schedule_time"],
         status=status_label,
-        content_type=content_label,
         created_at=post.get("created_at", "نامشخص"),
     )
 
