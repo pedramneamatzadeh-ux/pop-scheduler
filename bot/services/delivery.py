@@ -41,7 +41,11 @@ async def deliver_post(post_id: int):
     try:
         from ..application import bot_instance
         if not bot_instance:
-            raise RuntimeError("Bot instance not available")
+            logger.error("Bot instance not available for post %d", post_id)
+            db.update_status(post_id, STATUS_FAILED, failed_reason="Bot instance not available")
+            return
+        
+        bot = bot_instance
 
         # Copy each message from source to target
         success_count = 0
@@ -49,12 +53,14 @@ async def deliver_post(post_id: int):
 
         for msg_id in message_ids:
             try:
-                await bot_instance.copy_message(
+                logger.info("Copying message %d from %s to %s", msg_id, source_channel, target_channel)
+                await bot.copy_message(
                     chat_id=target_channel,
                     from_chat_id=source_channel,
                     message_id=msg_id,
                 )
                 success_count += 1
+                logger.info("Successfully copied message %d", msg_id)
             except TelegramError as e:
                 logger.warning("Failed to copy message %d: %s", msg_id, e)
                 failed_ids.append(msg_id)
@@ -82,7 +88,7 @@ async def deliver_post(post_id: int):
             # Retry with remaining time
             for msg_id in message_ids:
                 try:
-                    await bot_instance.copy_message(
+                    await bot.copy_message(
                         chat_id=target_channel,
                         from_chat_id=source_channel,
                         message_id=msg_id,

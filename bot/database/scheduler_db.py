@@ -160,6 +160,13 @@ class SchedulerDB:
                        WHERE id = ?""",
                     (status, failed_reason, post_id)
                 )
+            # Add history entry
+            action = "sent" if status == STATUS_SENT else "failed"
+            details = failed_reason if failed_reason else None
+            conn.execute(
+                "INSERT INTO post_history (post_id, action, details) VALUES (?, ?, ?)",
+                (post_id, action, details)
+            )
 
     def update_target_channel(self, post_id: int, channel_id: str, channel_title: str):
         """Update target channel for a post."""
