@@ -423,6 +423,13 @@ async def input_hour(
             )
             return INPUT_HOUR
         
+        # بازگشت از انتخاب ماه
+        if data.startswith("m:"):
+            await query.answer()
+            month = int(data.replace("m:", ""))
+            context.user_data["month"] = month
+            return await _show_datetime(query, context)
+        
         # بازگشت
         if data == "dt:back":
             await query.answer()

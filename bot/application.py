@@ -114,7 +114,7 @@ def build_application() -> Application:
             ],
             INPUT_HOUR: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, input_hour),
-                CallbackQueryHandler(input_hour, pattern=r"^(h:|dt:back|cancel)$"),
+                CallbackQueryHandler(input_hour, pattern=r"^(h:|dt:back|m:|cancel)$"),
             ],
             SELECT_TARGET_CHANNEL: [
                 CallbackQueryHandler(select_target_callback, pattern=r"^(dst:|cancel)$"),
