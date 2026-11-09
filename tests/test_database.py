@@ -49,25 +49,28 @@ def test_add_and_get_post():
         post_id = db.add_post(
             chat_id=123,
             user_id=456,
-            message_data={"text": "Hello World"},
-            content_type="text",
-            target_channel="-100123",
-            target_channel_title="Test Channel",
-            schedule_date="2026-12-01",
+            source_channel="-100111",
+            source_channel_title="Source Channel",
+            message_ids=[10, 11, 12],
+            target_channel="-100222",
+            target_channel_title="Target Channel",
+            schedule_date="25 December 2026",
             schedule_time="14:00",
-            schedule_timestamp=1796212800.0,
+            schedule_timestamp=1798290000.0,
         )
         assert post_id > 0
 
         post = db.get_post(post_id)
         assert post is not None
         assert post["id"] == post_id
-        assert post["target_channel"] == "-100123"
-        assert post["target_channel_title"] == "Test Channel"
-        assert post["schedule_date"] == "2026-12-01"
+        assert post["source_channel"] == "-100111"
+        assert post["source_channel_title"] == "Source Channel"
+        assert post["message_ids"] == [10, 11, 12]
+        assert post["target_channel"] == "-100222"
+        assert post["target_channel_title"] == "Target Channel"
+        assert post["schedule_date"] == "25 December 2026"
         assert post["schedule_time"] == "14:00"
         assert post["status"] == "pending"
-        assert post["message_data"]["text"] == "Hello World"
     finally:
         _cleanup(path)
 
@@ -78,22 +81,18 @@ def test_get_pending_posts():
         # Add two pending posts
         id1 = db.add_post(
             chat_id=123, user_id=456,
-            message_data={"text": "Post 1"},
-            content_type="text",
-            target_channel="-100123",
-            target_channel_title="Ch",
-            schedule_date="2026-12-01",
-            schedule_time="14:00",
+            source_channel="-100111", source_channel_title="Src",
+            message_ids=[10],
+            target_channel="-100222", target_channel_title="Dst",
+            schedule_date="2026-12-01", schedule_time="14:00",
             schedule_timestamp=1796212800.0,
         )
         id2 = db.add_post(
             chat_id=123, user_id=456,
-            message_data={"text": "Post 2"},
-            content_type="text",
-            target_channel="-100123",
-            target_channel_title="Ch",
-            schedule_date="2026-12-02",
-            schedule_time="08:00",
+            source_channel="-100111", source_channel_title="Src",
+            message_ids=[20],
+            target_channel="-100222", target_channel_title="Dst",
+            schedule_date="2026-12-02", schedule_time="08:00",
             schedule_timestamp=1796198400.0,
         )
 
@@ -111,12 +110,10 @@ def test_update_status():
     try:
         post_id = db.add_post(
             chat_id=123, user_id=456,
-            message_data={"text": "Test"},
-            content_type="text",
-            target_channel="-100123",
-            target_channel_title="Ch",
-            schedule_date="2026-12-01",
-            schedule_time="14:00",
+            source_channel="-100111", source_channel_title="Src",
+            message_ids=[10],
+            target_channel="-100222", target_channel_title="Dst",
+            schedule_date="2026-12-01", schedule_time="14:00",
             schedule_timestamp=1796212800.0,
         )
 
@@ -137,12 +134,10 @@ def test_delete_post():
     try:
         post_id = db.add_post(
             chat_id=123, user_id=456,
-            message_data={"text": "To delete"},
-            content_type="text",
-            target_channel="-100123",
-            target_channel_title="Ch",
-            schedule_date="2026-12-01",
-            schedule_time="14:00",
+            source_channel="-100111", source_channel_title="Src",
+            message_ids=[10],
+            target_channel="-100222", target_channel_title="Dst",
+            schedule_date="2026-12-01", schedule_time="14:00",
             schedule_timestamp=1796212800.0,
         )
 
@@ -156,16 +151,30 @@ def test_delete_post():
 def test_channels():
     db, path = _make_db()
     try:
-        assert db.add_channel(channel_id="-100111", title="Channel 1") is True
-        assert db.add_channel(channel_id="-100222", title="Channel 2") is True
+        # Add source channel
+        assert db.add_channel(channel_id="-100111", title="Source 1", channel_type="source") is True
+        # Add destination channel
+        assert db.add_channel(channel_id="-100222", title="Dest 1", channel_type="destination") is True
         assert db.add_channel(channel_id="-100111") is False  # Duplicate
 
+        # Get all channels
         channels = db.get_channels()
         assert len(channels) == 2
 
+        # Get source channels only
+        sources = db.get_channels(channel_type="source")
+        assert len(sources) == 1
+        assert sources[0]["channel_id"] == "-100111"
+
+        # Get destination channels only
+        dests = db.get_channels(channel_type="destination")
+        assert len(dests) == 1
+        assert dests[0]["channel_id"] == "-100222"
+
         ch = db.get_channel("-100111")
         assert ch is not None
-        assert ch["title"] == "Channel 1"
+        assert ch["title"] == "Source 1"
+        assert ch["channel_type"] == "source"
 
         assert db.remove_channel("-100111") is True
         assert db.remove_channel("-100111") is False
@@ -234,30 +243,29 @@ def test_settings():
 def test_get_due_posts():
     db, path = _make_db()
     try:
-        # Add posts with different timestamps
         now = 1700000000.0
 
         db.add_post(
             chat_id=1, user_id=1,
-            message_data={"text": "Past"},
-            content_type="text",
-            target_channel="-100", target_channel_title="Ch",
+            source_channel="-100", source_channel_title="Src",
+            message_ids=[1],
+            target_channel="-200", target_channel_title="Dst",
             schedule_date="2023-01-01", schedule_time="00:00",
             schedule_timestamp=now - 3600,  # 1 hour ago
         )
         db.add_post(
             chat_id=1, user_id=1,
-            message_data={"text": "Now"},
-            content_type="text",
-            target_channel="-100", target_channel_title="Ch",
+            source_channel="-100", source_channel_title="Src",
+            message_ids=[2],
+            target_channel="-200", target_channel_title="Dst",
             schedule_date="2023-01-01", schedule_time="00:00",
             schedule_timestamp=now,  # Now
         )
         db.add_post(
             chat_id=1, user_id=1,
-            message_data={"text": "Future"},
-            content_type="text",
-            target_channel="-100", target_channel_title="Ch",
+            source_channel="-100", source_channel_title="Src",
+            message_ids=[3],
+            target_channel="-200", target_channel_title="Dst",
             schedule_date="2030-01-01", schedule_time="00:00",
             schedule_timestamp=now + 86400,  # 1 day later
         )
@@ -273,11 +281,11 @@ def test_history():
     try:
         post_id = db.add_post(
             chat_id=1, user_id=1,
-            message_data={"text": "Test"},
-            content_type="text",
-            target_channel="-100", target_channel_title="Ch",
-            schedule_date="2026-12-01", schedule_time="14:00",
-            schedule_timestamp=1796212800.0,
+            source_channel="-100", source_channel_title="Src",
+            message_ids=[10],
+            target_channel="-200", target_channel_title="Dst",
+            schedule_date="25 December 2026", schedule_time="14:00",
+            schedule_timestamp=1798290000.0,
         )
 
         # Initially no history (status is pending)

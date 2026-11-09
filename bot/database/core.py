@@ -41,8 +41,9 @@ class DatabaseCore:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     chat_id INTEGER NOT NULL,
                     user_id INTEGER NOT NULL,
-                    message_data TEXT NOT NULL,
-                    content_type TEXT NOT NULL DEFAULT 'text',
+                    source_channel TEXT NOT NULL,
+                    source_channel_title TEXT DEFAULT '',
+                    message_ids TEXT NOT NULL DEFAULT '[]',
                     target_channel TEXT NOT NULL,
                     target_channel_title TEXT DEFAULT '',
                     schedule_date TEXT NOT NULL,
@@ -64,6 +65,7 @@ class DatabaseCore:
                     channel_id TEXT PRIMARY KEY,
                     title TEXT DEFAULT '',
                     username TEXT DEFAULT '',
+                    channel_type TEXT NOT NULL DEFAULT 'destination',
                     added_at TEXT NOT NULL DEFAULT (datetime('now')),
                     is_active INTEGER NOT NULL DEFAULT 1
                 );
@@ -93,7 +95,26 @@ class DatabaseCore:
                 CREATE INDEX IF NOT EXISTS idx_posts_channel ON scheduled_posts(target_channel);
                 CREATE INDEX IF NOT EXISTS idx_posts_created ON scheduled_posts(created_at);
                 CREATE INDEX IF NOT EXISTS idx_history_post ON post_history(post_id);
+                CREATE INDEX IF NOT EXISTS idx_channels_type ON channels(channel_type);
             """)
+
+            # Migration: add channel_type if missing (for old DBs)
+            try:
+                conn.execute(
+                    "ALTER TABLE channels ADD COLUMN channel_type TEXT NOT NULL DEFAULT 'destination'"
+                )
+                logger.info("Migrated: added channel_type column")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            # Migration: add source columns if missing
+            try:
+                conn.execute("ALTER TABLE scheduled_posts ADD COLUMN source_channel TEXT NOT NULL DEFAULT ''")
+                conn.execute("ALTER TABLE scheduled_posts ADD COLUMN source_channel_title TEXT DEFAULT ''")
+                conn.execute("ALTER TABLE scheduled_posts ADD COLUMN message_ids TEXT NOT NULL DEFAULT '[]'")
+                logger.info("Migrated: added source_channel/message_ids columns")
+            except sqlite3.OperationalError:
+                pass  # Columns already exist
 
             logger.info("Database initialized at %s", self.db_path)
 

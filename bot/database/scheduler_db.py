@@ -18,25 +18,31 @@ class SchedulerDB:
 
     # ── Create ──────────────────────────────────────────────────────────────
 
-    def add_post(self, chat_id: int, user_id: int, message_data: dict,
-                 content_type: str, target_channel: str, target_channel_title: str,
-                 schedule_date: str, schedule_time: str, schedule_timestamp: float) -> int:
+    def add_post(self, chat_id: int, user_id: int,
+                 source_channel: str, source_channel_title: str,
+                 message_ids: list[int],
+                 target_channel: str, target_channel_title: str,
+                 schedule_date: str, schedule_time: str,
+                 schedule_timestamp: float) -> int:
         """Add a new scheduled post. Returns the post id."""
         with self.core.connection() as conn:
             cursor = conn.execute(
                 """INSERT INTO scheduled_posts
-                   (chat_id, user_id, message_data, content_type, target_channel,
-                    target_channel_title, schedule_date, schedule_time, schedule_timestamp)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (chat_id, user_id, json.dumps(message_data), content_type,
-                 target_channel, target_channel_title,
+                   (chat_id, user_id, source_channel, source_channel_title,
+                    message_ids, target_channel, target_channel_title,
+                    schedule_date, schedule_time, schedule_timestamp)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (chat_id, user_id, source_channel, source_channel_title,
+                 json.dumps(message_ids), target_channel, target_channel_title,
                  schedule_date, schedule_time, schedule_timestamp)
             )
             post_id = cursor.lastrowid
             # Add history entry
             conn.execute(
                 "INSERT INTO post_history (post_id, action, details, user_id) VALUES (?, ?, ?, ?)",
-                (post_id, "created", f"cheduled for {schedule_date} {schedule_time}", user_id)
+                (post_id, "created",
+                 f"Scheduled {len(message_ids)} message(s) for {schedule_date} {schedule_time}",
+                 user_id)
             )
             return post_id
 
@@ -71,7 +77,7 @@ class SchedulerDB:
             return [self._row_to_post(r) for r in rows]
 
     def get_posts_by_channel(self, channel_id: str, status: str = None) -> list[dict]:
-        """Get posts for a specific channel."""
+        """Get posts for a specific target channel."""
         with self.core.connection() as conn:
             if status:
                 rows = conn.execute(
@@ -181,5 +187,5 @@ class SchedulerDB:
     def _row_to_post(row) -> dict:
         """Convert a database row to a post dict."""
         post = dict(row)
-        post["message_data"] = json.loads(post["message_data"])
+        post["message_ids"] = json.loads(post["message_ids"])
         return post

@@ -9,13 +9,13 @@ from telegram.error import BadRequest
 
 from ..constants import (
     Msg, MANAGE_POSTS, MANAGE_POST_DETAIL, EDIT_POST_DATE, EDIT_POST_TIME,
-    EDIT_CUSTOM_TIME, MAIN_MENU, STATUS_PENDING, STATUS_LABELS, CONTENT_TYPE_LABELS,
+    EDIT_CUSTOM_TIME, MAIN_MENU, STATUS_PENDING, STATUS_LABELS,
 )
 from ..keyboards import post_list_keyboard, post_detail_keyboard, main_menu, cancel_keyboard
 from ..config import OWNER_ID
 from ..utils import (
     format_schedule_display, paginate, parse_date, parse_time, to_timestamp,
-    is_admin_or_owner, now_tz, fmt_datetime,
+    is_admin_or_owner, now_tz, fmt_datetime, format_message_ids,
 )
 from ..database import db
 from ..services.scheduler import scheduler
@@ -94,6 +94,10 @@ async def posts_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
         post_id = int(data.split(":")[1])
         await query.answer()
         return await _show_post_detail(query, context, post_id)
+
+    if data == "noop":
+        await query.answer()
+        return MANAGE_POSTS
 
     if data.startswith("del:"):
         post_id = int(data.split(":")[1])
@@ -338,15 +342,17 @@ async def _show_post_detail(query, context, post_id: int):
         return MANAGE_POSTS
 
     status_label = STATUS_LABELS.get(post["status"], post["status"])
-    content_label = CONTENT_TYPE_LABELS.get(post["content_type"], post["content_type"])
+    message_ids = post.get("message_ids", [])
 
     text = Msg.POST_DETAIL.format(
         post_id=post["id"],
-        channel=post.get("target_channel_title") or post["target_channel"],
+        source=post.get("source_channel_title") or post.get("source_channel", "نامشخص"),
+        message_ids=format_message_ids(message_ids),
+        count=len(message_ids),
+        target=post.get("target_channel_title") or post["target_channel"],
         date=post["schedule_date"],
         time=post["schedule_time"],
         status=status_label,
-        content_type=content_label,
         created_at=post.get("created_at", "نامشخص"),
     )
 

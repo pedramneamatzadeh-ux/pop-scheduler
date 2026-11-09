@@ -20,10 +20,11 @@ def test_import_config():
 def test_import_constants():
     from bot import constants
     assert hasattr(constants, "MAIN_MENU")
-    assert hasattr(constants, "AWAITING_POST")
+    assert hasattr(constants, "SELECT_SOURCE_CHANNEL")
     assert hasattr(constants, "Msg")
     assert hasattr(constants, "STATUS_PENDING")
     assert hasattr(constants, "QUICK_HOURS")
+    assert hasattr(constants, "MONTH_NAMES")
 
 
 def test_import_database_core():
@@ -39,6 +40,8 @@ def test_import_database_scheduler():
 def test_import_database_settings():
     from bot.database import settings_db
     assert hasattr(settings_db, "SettingsDB")
+    assert hasattr(settings_db, "CHANNEL_SOURCE")
+    assert hasattr(settings_db, "CHANNEL_DESTINATION")
 
 
 def test_import_database_init():
@@ -46,24 +49,28 @@ def test_import_database_init():
     assert hasattr(Database, "init")
     assert hasattr(Database, "add_post")
     assert hasattr(Database, "get_channels")
+    # Channel types are class attributes
+    assert Database.CHANNEL_SOURCE == "source"
+    assert Database.CHANNEL_DESTINATION == "destination"
 
 
 def test_import_utils():
     from bot import utils
     assert hasattr(utils, "parse_date")
     assert hasattr(utils, "parse_time")
+    assert hasattr(utils, "parse_message_ids")
     assert hasattr(utils, "to_timestamp")
-    assert hasattr(utils, "extract_message_data")
     assert hasattr(utils, "paginate")
 
 
 def test_import_keyboards():
     from bot import keyboards
     assert hasattr(keyboards, "main_menu")
-    assert hasattr(keyboards, "channel_selection_keyboard")
-    assert hasattr(keyboards, "date_keyboard")
-    assert hasattr(keyboards, "time_keyboard")
-    assert hasattr(keyboards, "confirm_keyboard")
+    assert hasattr(keyboards, "source_channels_keyboard")
+    assert hasattr(keyboards, "dest_channels_keyboard")
+    assert hasattr(keyboards, "datetime_keyboard")
+    assert hasattr(keyboards, "months_keyboard")
+    assert hasattr(keyboards, "hours_keyboard")
 
 
 def test_import_services_scheduler():
@@ -76,7 +83,6 @@ def test_import_services_scheduler():
 def test_import_services_delivery():
     from bot.services import delivery
     assert hasattr(delivery, "deliver_post")
-    assert hasattr(delivery, "send_copy")
 
 
 def test_import_handlers():

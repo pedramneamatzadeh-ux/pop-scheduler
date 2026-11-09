@@ -17,15 +17,7 @@ OWNER_ID: int = int(os.getenv("OWNER_ID", "0"))
 DATABASE: str = os.getenv("DATABASE", "scheduler.db")
 
 # ── Optional (with defaults) ────────────────────────────────────────────────
-ADMIN_IDS: list[int] = []
-_raw_admins = os.getenv("ADMIN_IDS", "")
-if _raw_admins.strip():
-    ADMIN_IDS = [int(x.strip()) for x in _raw_admins.split(",") if x.strip().isdigit()]
-
-CHANNELS: list[int] = []
-_raw_channels = os.getenv("CHANNELS", "")
-if _raw_channels.strip():
-    CHANNELS = [int(x.strip()) for x in _raw_channels.split(",") if x.strip().lstrip("-").isdigit()]
+# NOTE: Channels and admins are managed from settings panel (DB), not env.
 
 # ── Default posting hours (24h format) ──────────────────────────────────────
 DEFAULT_HOURS: list[int] = [8, 11, 14, 17, 20, 23]

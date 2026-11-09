@@ -3,7 +3,7 @@ Database package — provides the unified Database class.
 """
 from .core import DatabaseCore
 from .scheduler_db import SchedulerDB
-from .settings_db import SettingsDB
+from .settings_db import SettingsDB, CHANNEL_SOURCE, CHANNEL_DESTINATION
 
 
 class Database:
@@ -111,6 +111,10 @@ class Database:
 
     def add_history_log(self, **kwargs):
         return self.settings.add_history_log(**kwargs)
+
+    # Channel type constants
+    CHANNEL_SOURCE = "source"
+    CHANNEL_DESTINATION = "destination"
 
 
 # Singleton instance (initialized in main.py)
