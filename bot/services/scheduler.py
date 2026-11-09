@@ -44,8 +44,8 @@ class SchedulerService:
         if tz_name:
             tz = ZoneInfo(tz_name)
         else:
-            from ..config import TIMEZONE
-            tz = ZoneInfo(TIMEZONE)
+            from ..config import config
+            tz = ZoneInfo(config.TIMEZONE)
 
         target_dt = datetime.fromtimestamp(schedule_timestamp, tz=tz)
 
