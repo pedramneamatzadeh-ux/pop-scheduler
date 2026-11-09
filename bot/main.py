@@ -51,11 +51,15 @@ def main():
     from bot.application import build_application
     app = build_application()
 
-    # Schedule all pending posts
-    from bot.services.scheduler import scheduler
-    scheduler.start()
-    count = scheduler.reschedule_all_pending()
-    logger.info("Re-scheduled %d pending posts", count)
+    # Define post_init callback to start scheduler after event loop is ready
+    async def post_init(application):
+        """Start scheduler after event loop is running."""
+        from bot.services.scheduler import scheduler
+        scheduler.start()
+        count = scheduler.reschedule_all_pending()
+        logger.info("Re-scheduled %d pending posts", count)
+
+    app.post_init = post_init
 
     # Run the bot
     logger.info("Bot is running!")

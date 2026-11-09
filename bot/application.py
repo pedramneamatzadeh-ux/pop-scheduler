@@ -98,6 +98,7 @@ def build_application() -> Application:
             CommandHandler("cancel", cancel_command),
             MessageHandler(filters.Regex("^❌ لغو$"), cancel_command),
         ],
+        per_message=True,
         allow_reentry=True,
     )
     app.add_handler(schedule_conv)
@@ -132,6 +133,7 @@ def build_application() -> Application:
             CommandHandler("cancel", cancel_command),
             MessageHandler(filters.Regex("^❌ لغو$"), cancel_command),
         ],
+        per_message=True,
         allow_reentry=True,
     )
     app.add_handler(posts_conv)
@@ -150,6 +152,7 @@ def build_application() -> Application:
             CommandHandler("cancel", cancel_command),
             MessageHandler(filters.Regex("^❌ لغو$"), cancel_command),
         ],
+        per_message=True,
         allow_reentry=True,
     )
     app.add_handler(history_conv)
@@ -177,6 +180,7 @@ def build_application() -> Application:
             CommandHandler("cancel", cancel_command),
             MessageHandler(filters.Regex("^❌ لغو$"), cancel_command),
         ],
+        per_message=True,
         allow_reentry=True,
     )
     app.add_handler(settings_conv)
