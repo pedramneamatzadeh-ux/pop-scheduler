@@ -104,17 +104,17 @@ def build_application() -> Application:
                 CallbackQueryHandler(posts_callback_handler),
             ],
             EDIT_POST_DATE: [
-                CallbackQueryHandler(edit_date_callback, pattern=r"^d:"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, edit_custom_date_input),
+                CallbackQueryHandler(posts_callback_handler, pattern=r"^(edt:|edm:)"),
                 CallbackQueryHandler(lambda u, c: _cancel_inline(u, c), pattern=r"^cancel$"),
             ],
             EDIT_POST_TIME: [
-                CallbackQueryHandler(edit_time_callback, pattern=r"^t:"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, edit_custom_time_input),
+                CallbackQueryHandler(posts_callback_handler, pattern=r"^edh:"),
                 CallbackQueryHandler(lambda u, c: _cancel_inline(u, c), pattern=r"^cancel$"),
             ],
             EDIT_CUSTOM_TIME: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, edit_custom_time_input),
+                CallbackQueryHandler(posts_callback_handler, pattern=r"^edt:"),
+                CallbackQueryHandler(lambda u, c: _cancel_inline(u, c), pattern=r"^cancel$"),
             ],
         },
         fallbacks=[
