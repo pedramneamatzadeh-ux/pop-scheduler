@@ -261,8 +261,8 @@ def post_detail_keyboard(
             ib("📢 تغییر مقصد", callback_data=f"edit_ch:{post_id}"),
         ])
         buttons.append([
-            ib("🗑 حذف", callback_data=f"del:{post_id}", style="danger"),
-            ib("❌ لغو پست", callback_data=f"cancel_post:{post_id}", style="danger"),
+            ib("🗑 حذف کامل", callback_data=f"del:{post_id}", style="danger"),
+            ib("⏸ غیرفعال کردن", callback_data=f"cancel_post:{post_id}", style="danger"),
         ])
     
     buttons.append([ib("📋 بازگشت به لیست", callback_data="back_to_list")])

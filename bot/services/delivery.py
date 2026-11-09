@@ -20,6 +20,8 @@ async def deliver_post(post_id: int):
     Called by the scheduler when the post is due.
     Copies all messages from source channel to target channel.
     """
+    logger.info("=== DELIVER_POST CALLED for post_id=%d ===", post_id)
+    
     post = db.get_post(post_id)
     if not post:
         logger.error("Post %d not found for delivery", post_id)
@@ -33,6 +35,8 @@ async def deliver_post(post_id: int):
     target_channel = post["target_channel"]
     message_ids = post.get("message_ids", [])
 
+    logger.info("Post %d: source=%s, target=%s, message_ids=%s", post_id, source_channel, target_channel, message_ids)
+
     if not message_ids:
         logger.error("Post %d has no message IDs", post_id)
         db.update_status(post_id, STATUS_FAILED, failed_reason="No message IDs")
@@ -40,12 +44,15 @@ async def deliver_post(post_id: int):
 
     try:
         from ..application import bot_instance
+        logger.info("bot_instance: %s", bot_instance)
+        
         if not bot_instance:
             logger.error("Bot instance not available for post %d", post_id)
             db.update_status(post_id, STATUS_FAILED, failed_reason="Bot instance not available")
             return
         
         bot = bot_instance
+        logger.info("Starting delivery for post %d", post_id)
 
         # Copy each message from source to target
         success_count = 0
