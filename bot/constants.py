@@ -66,12 +66,14 @@ STATUS_PENDING = "pending"
 STATUS_SENT = "sent"
 STATUS_FAILED = "failed"
 STATUS_CANCELLED = "cancelled"
+STATUS_DISABLED = "disabled"  # غیرفعال (قابل فعال‌سازی مجدد)
 
 STATUS_LABELS = {
     STATUS_PENDING: "⏳ در انتظار",
     STATUS_SENT: "✅ ارسال شده",
     STATUS_FAILED: "❌ ناموفق",
     STATUS_CANCELLED: "❌ لغو شده",
+    STATUS_DISABLED: "⏸ غیرفعال",
 }
 
 # ============================================================================
@@ -183,7 +185,9 @@ class Msg:
     
     POST_DELETED = "🗑 پست با موفقیت حذف کامل شد."
     POST_EDITED = "✅ پست با موفقیت ویرایش شد."
-    POST_CANCELLED_MSG = "⏸ پست با موفقیت غیرفعال شد.\n(پست در تاریخچه باقی می‌ماند ولی ارسال نخواهد شد.)"
+    POST_DISABLED_MSG = "⏸ پست با موفقیت غیرفعال شد.\n(هر زمان می‌توانید آن را مجدداً فعال کنید.)"
+    POST_ENABLED_MSG = "▶️ پست با موفقیت فعال شد.\n(در زمان مقرر ارسال خواهد شد.)"
+    POST_CANCELLED_MSG = "❌ پست لغو شد."
     
     # تاریخچه
     NO_HISTORY = "📭 تاریخچه‌ای وجود ندارد."
