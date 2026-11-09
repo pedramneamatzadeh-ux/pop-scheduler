@@ -9,12 +9,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def test_import_config():
-    from bot import config
+    from bot.config import config, Config
+    assert isinstance(config, Config)
     assert hasattr(config, "BOT_TOKEN")
     assert hasattr(config, "OWNER_ID")
-    assert hasattr(config, "DATABASE")
-    assert hasattr(config, "DEFAULT_HOURS")
-    assert config.DEFAULT_HOURS == [8, 11, 14, 17, 20, 23]
+    assert hasattr(config, "validate")
+    assert hasattr(Config, "DEFAULT_HOURS")
+    assert Config.DEFAULT_HOURS == [8, 11, 14, 17, 20, 23]
 
 
 def test_import_constants():
@@ -23,8 +24,8 @@ def test_import_constants():
     assert hasattr(constants, "SELECT_SOURCE_CHANNEL")
     assert hasattr(constants, "Msg")
     assert hasattr(constants, "STATUS_PENDING")
-    assert hasattr(constants, "QUICK_HOURS")
     assert hasattr(constants, "MONTH_NAMES")
+    assert hasattr(constants, "INPUT_HOUR")
 
 
 def test_import_database_core():
@@ -56,21 +57,31 @@ def test_import_database_init():
 
 def test_import_utils():
     from bot import utils
-    assert hasattr(utils, "parse_date")
-    assert hasattr(utils, "parse_time")
+    assert hasattr(utils, "normalize_digits")
     assert hasattr(utils, "parse_message_ids")
+    assert hasattr(utils, "validate_hour_input")
+    assert hasattr(utils, "get_month_days")
     assert hasattr(utils, "to_timestamp")
     assert hasattr(utils, "paginate")
+    assert hasattr(utils, "is_admin_or_owner")
 
 
 def test_import_keyboards():
     from bot import keyboards
+    assert hasattr(keyboards, "ib")
     assert hasattr(keyboards, "main_menu")
     assert hasattr(keyboards, "source_channels_keyboard")
     assert hasattr(keyboards, "dest_channels_keyboard")
     assert hasattr(keyboards, "datetime_keyboard")
     assert hasattr(keyboards, "months_keyboard")
     assert hasattr(keyboards, "hours_keyboard")
+    assert hasattr(keyboards, "inline_cancel_keyboard")
+
+
+def test_import_decorators():
+    from bot import decorators
+    assert hasattr(decorators, "owner_only")
+    assert hasattr(decorators, "admin_required")
 
 
 def test_import_services_scheduler():

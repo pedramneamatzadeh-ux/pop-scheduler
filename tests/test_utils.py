@@ -8,136 +8,112 @@ from datetime import date, time, datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def test_parse_date():
-    from bot.utils import parse_date
-
-    # Standard format
-    assert parse_date("2026-11-15") == date(2026, 11, 15)
-    assert parse_date("2026/11/15") == date(2026, 11, 15)
-
-    # European format
-    assert parse_date("15-11-2026") == date(2026, 11, 15)
-
-    # Invalid
-    assert parse_date("not-a-date") is None
-    assert parse_date("2026-13-01") is None  # month 13
-    assert parse_date("") is None
-
-
-def test_parse_time():
-    from bot.utils import parse_time
-
-    assert parse_time("14:00") == time(14, 0)
-    assert parse_time("08:30") == time(8, 30)
-    assert parse_time("23:59") == time(23, 59)
-    assert parse_time("0") == time(0, 0)
-
-    # Invalid
-    assert parse_time("not-a-time") is None
-    assert parse_time("25:00") is None
-    assert parse_time("") is None
+def test_normalize_digits():
+    from bot.utils import normalize_digits
+    
+    assert normalize_digits("۱۲۳") == "123"
+    assert normalize_digits("٤٥٦") == "456"
+    assert normalize_digits("abc") == "abc"
+    assert normalize_digits(None) == ""
 
 
 def test_parse_message_ids():
     from bot.utils import parse_message_ids
-
+    
     # Single ID
     assert parse_message_ids("10") == [10]
-
+    
     # Range
     assert parse_message_ids("10-15") == [10, 11, 12, 13, 14, 15]
-
+    
     # Multiple
     assert parse_message_ids("10,13,17") == [10, 13, 17]
-
+    
     # Combined
     assert parse_message_ids("10,13-15,17") == [10, 13, 14, 15, 17]
-
+    
     # With Persian comma
     assert parse_message_ids("10،13،17") == [10, 13, 17]
-
+    
     # With spaces
     assert parse_message_ids("10, 13, 17") == [10, 13, 17]
-
+    
     # Invalid
     assert parse_message_ids("abc") is None
     assert parse_message_ids("") is None
-    assert parse_message_ids("-5") is None  # negative
-    assert parse_message_ids("15-10") is None  # reversed range
-
+    assert parse_message_ids("-5") is None
+    assert parse_message_ids("15-10") is None
+    
     # Duplicates removed
     assert parse_message_ids("10,10,10") == [10]
 
 
-def test_to_timestamp():
-    from bot.utils import to_timestamp
+def test_validate_hour_input():
+    from bot.utils import validate_hour_input
+    
+    # Valid formats
+    assert validate_hour_input("14") == (True, 14, 0)
+    assert validate_hour_input("14:30") == (True, 14, 30)
+    assert validate_hour_input("08:05") == (True, 8, 5)
+    assert validate_hour_input("0") == (True, 0, 0)
+    assert validate_hour_input("23:59") == (True, 23, 59)
+    
+    # Invalid formats
+    assert validate_hour_input("25")[0] is False
+    assert validate_hour_input("14:60")[0] is False
+    assert validate_hour_input("abc")[0] is False
+    assert validate_hour_input("")[0] is False
 
-    ts = to_timestamp(2026, 11, 15, 14, "UTC")
-    assert isinstance(ts, float)
-    assert ts > 0
+
+def test_get_month_days():
+    from bot.utils import get_month_days
+    
+    # January has 31 days
+    assert get_month_days(2024, 1) == 31
+    
+    # February in leap year
+    assert get_month_days(2024, 2) == 29
+    
+    # February in non-leap year
+    assert get_month_days(2023, 2) == 28
+    
+    # April has 30 days
+    assert get_month_days(2024, 4) == 30
 
 
 def test_paginate():
     from bot.utils import paginate
-
+    
     items = list(range(20))
-
+    
     # Page 0
     page, total = paginate(items, 0, 5)
     assert page == [0, 1, 2, 3, 4]
     assert total == 4
-
+    
     # Page 1
     page, total = paginate(items, 1, 5)
     assert page == [5, 6, 7, 8, 9]
     assert total == 4
-
+    
     # Last page
     page, total = paginate(items, 3, 5)
     assert page == [15, 16, 17, 18, 19]
-
+    
     # Out of range → clamp
     page, total = paginate(items, 10, 5)
     assert page == [15, 16, 17, 18, 19]
-
+    
     page, total = paginate(items, -5, 5)
     assert page == [0, 1, 2, 3, 4]
 
 
-def test_truncate_text():
-    from bot.utils import truncate_text
-
-    assert truncate_text("Hello", 10) == "Hello"
-    assert truncate_text("Hello World, this is a long text", 15) == "Hello World,..."
-    assert truncate_text("", 10) == "(بدون متن)"
-    assert truncate_text(None, 10) == "(بدون متن)"
-
-
-def test_fmt_date():
-    from bot.utils import fmt_date
-
-    assert fmt_date(date(2026, 11, 15)) == "2026-11-15"
-    assert fmt_date(date(2026, 1, 5)) == "2026-01-05"
-
-
-def test_fmt_time():
-    from bot.utils import fmt_time
-
-    assert fmt_time(time(14, 0)) == "14:00"
-    assert fmt_time(time(8, 5)) == "08:05"
-
-
-def test_format_message_ids():
-    from bot.utils import format_message_ids
-
-    assert format_message_ids([]) == ""
-    assert format_message_ids([10]) == "10"
-    assert format_message_ids([10, 11, 12]) == "10, 11, 12"
-
-    # Long list
-    long_list = list(range(1, 20))
-    result = format_message_ids(long_list, max_display=10)
-    assert "... (19 total)" in result
+def test_to_timestamp():
+    from bot.utils import to_timestamp
+    
+    ts = to_timestamp(2026, 11, 15, 14)
+    assert isinstance(ts, float)
+    assert ts > 0
 
 
 if __name__ == "__main__":

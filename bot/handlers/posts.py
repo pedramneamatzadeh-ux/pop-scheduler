@@ -17,7 +17,7 @@ from ..keyboards import (
     datetime_keyboard, months_keyboard, hours_keyboard,
     dest_channels_keyboard, inline_cancel_keyboard,
 )
-from ..config import OWNER_ID
+from ..config import config
 from ..utils import (
     format_schedule_display, paginate, to_timestamp,
     is_admin_or_owner, now_tz, format_message_ids,
@@ -78,7 +78,7 @@ async def posts_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text=Msg.WELCOME,
-            reply_markup=main_menu(user_id, is_owner=(user_id == OWNER_ID)),
+            reply_markup=main_menu(user_id, is_owner=(user_id == config.OWNER_ID)),
             parse_mode="HTML"
         )
         return MAIN_MENU

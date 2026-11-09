@@ -208,8 +208,9 @@ def test_default_hours():
     db, path = _make_db()
     try:
         hours = db.get_default_hours()
-        # Should return DEFAULT_HOURS from config since no setting exists yet
-        assert hours == [8, 11, 14, 17, 20, 23]
+        # Should return DEFAULT_HOURS from Config class since no setting exists yet
+        from bot.config import Config
+        assert hours == Config.DEFAULT_HOURS
 
         db.add_hour(10)
         hours = db.get_default_hours()

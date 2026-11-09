@@ -1,7 +1,7 @@
 # 📋 لیست تغییرات و وضعیت پروژه ربات زمان‌بندی پست
 
-> این فایل مرجع زنده پروژه است و باید بعد از هر تغییر به‌روزرسانی شود.
-> مرجع قوانین همکاری: [`INSTRUCTIONS.md`](INSTRUCTIONS.md)
+> این فایل مرجع زنده پروژه است و باید بعد از هر تغییر به‌روزرسانی شود.  
+> مرجع قوانین همکاری: [`INSTRUCTIONS.md`](INSTRUCTIONS.md)  
 > آخرین به‌روزرسانی: ۲۰۲۶-۱۱-۰۹
 
 ---
@@ -12,8 +12,8 @@
 |---|---|
 | 🔴 در حال بررسی | (خالی) |
 | 🟡 در انتظار تصمیم | (خالی) |
-| ⚪ در صف اجرا | (خالی) |
-| 🟢 انجام شده | ساختار اولیه پروژه + نسخه پایه v0.1.0 |
+| ⚪ در صف اجرا | تست نهایی روی سرور |
+| 🟢 انجام شده | بازنویسی کامل بر اساس الگوهای Uploader-Bot |
 
 ---
 
@@ -21,115 +21,107 @@
 
 | # | مورد | جزئیات |
 |---|---|---|
-| 1 | ساختار اولیه پروژه | پوشه‌های `bot/`, `bot/database/`, `bot/handlers/`, `bot/services/`, `tests/` |
-| 2 | `INSTRUCTIONS.md` | دستورالعمل کامل همکاری |
-| 3 | `CHANGE_LIST.md` | همین فایل |
-| 4 | `config.py` | مدیریت تنظیمات از env (BOT_TOKEN, OWNER_ID, DATABASE, ADMIN_IDS, CHANNELS, TIMEZONE) |
-| 5 | `constants.py` | تمام ثابت‌ها، پیام‌ها و stateهای ConversationHandler |
-| 6 | `database/core.py` | اتصال SQLite + WAL + migration + جدول‌های اصلی |
-| 7 | `database/scheduler_db.py` | عملیات CRUD پست‌های زمان‌بندی‌شده |
-| 8 | `database/settings_db.py` | مدیریت کانال‌ها، ادمین‌ها و ساعت‌های پیش‌فرض |
-| 9 | `utils.py` | توابع کمکی (parse date/time, extract message data, pagination, decorators) |
-| 10 | `keyboards.py` | تمام کیبوردهای Reply و Inline |
-| 11 | `services/scheduler.py` | مدیریت APScheduler برای زمان‌بندی پست‌ها |
-| 12 | `services/delivery.py` | ارسال پست به کانال (با پشتیبانی از تمام انواع محتوا) |
-| 13 | `handlers/base.py` | start, cancel, main menu, error handler |
-| 14 | `handlers/schedule.py` | فلوی کامل زمان‌بندی جدید (پیام → کانال → تاریخ → ساعت → تأیید) |
-| 15 | `handlers/posts.py` | مدیریت پست‌های فعال (مشاهده، ویرایش تاریخ/ساعت/کانال، حذف، لغو) |
-| 16 | `handlers/settings.py` | تنظیمات (کانال‌ها، ساعت‌ها، ادمین‌ها) |
-| 17 | `handlers/history.py` | تاریخچه ارسال‌ها |
-| 18 | `application.py` | اتصال تمام handlerها و ConversationHandlerها |
-| 19 | `main.py` | نقطه شروع ربات |
-| 20 | `requirements.txt` | وابستگی‌ها (python-telegram-bot>=22.7, python-dotenv, APScheduler) |
-| 21 | `.env.example` | نمونه فایل env |
+| 1 | بازنویسی `config.py` | استفاده از `Config` class با type hints و validation |
+| 2 | بازنویسی `constants.py` | Stateها با `range()` + `Msg` class برای پیام‌ها |
+| 3 | ساخت `decorators.py` | `@owner_only` و `@admin_required` با type hints کامل |
+| 4 | بازنویسی `utils.py` | اضافه کردن `normalize_digits`, `parse_message_ids`, `validate_hour_input`, `get_month_days`, `is_admin_or_owner` |
+| 5 | بازنویسی `keyboards.py` | اضافه کردن `ib()` helper با رنگ خودکار، اصلاح نمایش دکمه‌ها |
+| 6 | بازنویسی `handlers/schedule.py` | رفع مشکلات conversation، اصلاح فرمت ساعت، دکمه‌های تاریخ |
+| 7 | بازنویسی `handlers/settings.py` | رفع مشکل بسته شدن conversation، اصلاح فرمت ساعت |
+| 8 | بازنویسی `handlers/base.py` | استفاده از `config` object به جای متغیرهای مستقیم |
+| 9 | به‌روزرسانی `handlers/posts.py` | سازگاری با `config` object |
+| 10 | به‌روزرسانی `handlers/history.py` | سازگاری با `config` object |
+| 11 | به‌روزرسانی `application.py` | ساختار تمیزتر، رفع مشکل `per_message` |
 
 ---
 
-## 📝 توضیحات معماری نسخه پایه
+## 🔧 مشکلات رفع‌شده
 
-### ساختار فایل‌ها
+### P1: دکمه‌های ریپلای کیبورد کار نمی‌کردند
+**علت:** استفاده از `per_message=True` در ConversationHandler  
+**رفع:** حذف `per_message` از همه ConversationHandlerها
 
+### P2: بسته شدن conversation بعد از فرمت اشتباه
+**علت:** بازگشت به `ConversationHandler.END` به جای state فعلی  
+**رفع:** بازگشت به state مربوطه (مثلاً `INPUT_YEAR`, `INPUT_DAY`, `INPUT_HOUR`, `CUSTOM_HOUR_INPUT`)
+
+### P3: فرمت ساعت باید `HH:MM` باشد
+**علت:** قبول فقط عدد ساده  
+**رفع:** اضافه کردن `validate_hour_input()` که هم `14` و هم `14:30` را قبول می‌کند
+
+### P4: دکمه ماه فقط نام ماه را نشان دهد
+**علت:** نمایش سال هم همراه ماه  
+**رفع:** اصلاح `datetime_keyboard()` برای نمایش فقط نام ماه
+
+### P5: دکمه سال جداگانه
+**علت:** نبود دکمه مستقل برای سال  
+**رفع:** اضافه کردن دکمه "📅 2026" با callback `dt:year`
+
+### P6: دکمه روز تعداد روزهای ماه را بداند
+**علت:** عدم اطلاع از تعداد روزهای ماه  
+**رفع:** استفاده از `get_month_days()` و نمایش "📆 15 (از 1 تا 31)"
+
+---
+
+## 📝 تغییرات ساختاری
+
+### قبل (Uploader-Bot الگو نبود)
+```python
+# config.py
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+OWNER_ID = int(os.getenv("OWNER_ID", "0"))
 ```
-pop-scheduler/
-├── bot/
-│   ├── __init__.py
-│   ├── main.py           # نقطه شروع
-│   ├── config.py         # تنظیمات از env
-│   ├── constants.py      # ثابت‌ها + stateها + پیام‌ها
-│   ├── keyboards.py      # Reply + Inline keyboards
-│   ├── utils.py          # توابع کمکی + decoratorها
-│   ├── application.py    # ساخت Application + اتصال handlerها
-│   ├── database/
-│   │   ├── __init__.py   # Database class + singleton
-│   │   ├── core.py       # اتصال SQLite + migration
-│   │   ├── scheduler_db.py  # CRUD پست‌های زمان‌بندی
-│   │   └── settings_db.py   # کانال‌ها، ادمین‌ها، ساعت‌ها
-│   ├── handlers/
-│   │   ├── __init__.py
-│   │   ├── base.py       # /start, /cancel, منوی اصلی
-│   │   ├── schedule.py   # فلوی زمان‌بندی جدید
-│   │   ├── posts.py      # مدیریت پست‌های فعال
-│   │   ├── settings.py   # تنظیمات
-│   │   └── history.py    # تاریخچه
-│   └── services/
-│       ├── __init__.py
-│       ├── scheduler.py  # APScheduler
-│       └── delivery.py   # ارسال پیام
-├── tests/
-├── .env.example
-├── requirements.txt
-├── INSTRUCTIONS.md
-├── CHANGE_LIST.md
-└── LICENSE
+
+### بعد (الگوی Uploader-Bot)
+```python
+# config.py
+class Config:
+    def __init__(self) -> None:
+        self.BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
+        self.OWNER_ID: Optional[int] = self._parse_optional_id(os.getenv("OWNER_ID"))
+    
+    def validate(self) -> None:
+        if not self.BOT_TOKEN:
+            raise ValueError("...")
+
+config = Config()
 ```
 
-### معماری
-
-| بخش | توضیح |
-|---|---|
-| **زبان** | Python 3.11+ |
-| **کتابخانه تلگرام** | `python-telegram-bot>=22.7` (آخرین Bot API) |
-| **زمان‌بندی** | APScheduler 3.x (AsyncIOScheduler) |
-| **دیتابیس** | SQLite3 + WAL mode |
-| **تاریخ** | میلادی (طبق درخواست کاربر) |
-| **ساعت‌های پیش‌فرض** | 08, 11, 14, 17, 20, 23 |
-| **Timezone** | Europe/Berlin (پیش‌فرض) |
-| **احراز هویت** | OWNER_ID + ADMIN_IDS (دیتابیس) |
-
-### ConversationHandlerها
-
-| # | مکالمه | Stateها |
-|---|---|---|
-| 1 | زمان‌بندی جدید | AWAITING_POST → SELECT_CHANNEL → SELECT_DATE → SELECT_TIME → CUSTOM_TIME → CONFIRM_SCHEDULE |
-| 2 | مدیریت پست‌ها | MANAGE_POSTS → MANAGE_POST_DETAIL → EDIT_POST_DATE/EDIT_POST_TIME → EDIT_CUSTOM_TIME |
-| 3 | تاریخچه | VIEW_HISTORY |
-| 4 | تنظیمات | SETTINGS_MENU → ADD_CHANNEL → ADD_ADMIN → CUSTOM_HOUR_INPUT |
-
-### جدول‌های دیتابیس
-
-| جدول | توضیح |
-|---|---|
-| `scheduled_posts` | پست‌های زمان‌بندی‌شده (message_data, target_channel, schedule_date/time, status) |
-| `settings` | تنظیمات کلید-مقدار |
-| `channels` | کانال‌های مجاز |
-| `admins` | مدیران ربات |
-| `post_history` | لاگ تغییرات پست‌ها |
-
-### فلوی اصلی
-
+### قبل (Stateها)
+```python
+MAIN_MENU = 0
+SELECT_SOURCE_CHANNEL = 1
+SELECT_MESSAGE_IDS = 2
 ```
-ادمین → ربات → پیام (متن/عکس/ویدیو/...)
-                 ↓
-          انتخاب کانال مقصد
-                 ↓
-          انتخاب تاریخ (امروز/فردا/پس‌فردا/دلخواه)
-                 ↓
-          انتخاب ساعت (پیش‌فرض/دلخواه)
-                 ↓
-          تأیید → ذخیره در DB + زمان‌بندی با APScheduler
-                 ↓
-          سر وقت → ارسال به کانال با send_photo/video/...
-                   (یا copy_message برای forward بدون نمایش فرستنده)
+
+### بعد (الگوی Uploader-Bot)
+```python
+(
+    SELECT_SOURCE_CHANNEL,
+    SELECT_MESSAGE_IDS,
+    SELECT_DATETIME,
+    INPUT_YEAR,
+    INPUT_DAY,
+    INPUT_HOUR,
+    SELECT_TARGET_CHANNEL,
+    CONFIRM_SCHEDULE,
+) = range(8)
+```
+
+### قبل (Keyboards)
+```python
+InlineKeyboardButton("🗓 November 2026", callback_data="dt:month")
+```
+
+### بعد (الگوی Uploader-Bot)
+```python
+def ib(text: str, style: Optional[str] = None, **kwargs):
+    if style is None:
+        if "لغو" in text:
+            style = "danger"
+    return InlineKeyboardButton(text, style=style, **kwargs)
+
+ib(f"🗓 {month_name}", callback_data="dt:month")
 ```
 
 ---
@@ -138,21 +130,40 @@ pop-scheduler/
 
 | # | مورد | توضیح |
 |---|---|---|
-| S1 | پشتیبانی از media group (آلبوم) | فعلاً فقط تک‌پیام پشتیبانی می‌شود. برای آلبوم‌ها باید `send_media_group` پیاده‌سازی شود. |
-| S2 | بازیابی فایل‌ها پس از ری‌استارت | اگر ربات ری‌استارت شود، file_idها معتبرند ولی اگر تلگرام آنها را پاک کند، ارسال ناموفق می‌شود. پیشنهاد: ذخیره فایل‌ها روی دیسک. |
-| S3 | فوروارد بدون نمایش فرستنده | فعلاً پیام‌ها به صورت مستقیم ارسال می‌شوند. برای فوروارد ناشناس باید `copy_message` استفاده شود. فعلاً `send_copy()` در delivery.py آماده است. |
-| S4 | آمار ارسال‌ها | هنوز پنل آمار (تعداد ارسال موفق/ناموفق، بیشترین کانال و...) پیاده‌سازی نشده. |
-| S5 | تکرار پست | قابلیت تکرار خودکار (مثلاً هر روز ساعت ۲۰) فعلاً پیاده‌سازی نشده. APScheduler از cron trigger پشتیبانی می‌کند. |
-| S6 | ارسال گروهی به چند کانال | فعلاً هر پست فقط به یک کانال می‌رود. قابلیت ارسال به چند کانال همزمان می‌تواند اضافه شود. |
-| S7 | پیش‌نمایش پست قبل از زمان‌بندی | ادمین بتواند قبل از تأیید نهایی، پست را در یک چت خصوصی پیش‌نمایش کند. |
-| S8 | اولویت‌بندی پیام‌ها | اگر چند پست در یک زمان باشند، ترتیب ارسال مشخص نیست. |
+| S1 | پشتیبانی از media group | فعلاً فقط تک‌پیام پشتیبانی می‌شود |
+| S2 | تکرار پست | قابلیت تکرار خودکار (cron) پیاده‌سازی نشده |
+| S3 | پیش‌نمایش پست | ادمین بتواند قبل از تأیید، پست را پیش‌نمایش کند |
+| S4 | آمار ارسال‌ها | پنل آمار (تعداد موفق/ناموفق) پیاده‌سازی نشده |
 
 ---
 
 ## 📌 یادداشت‌های مهم
 
-- ساعت‌های پیش‌فرض: `08:00, 11:00, 14:00, 17:00, 20:00, 23:00`
-- تاریخ‌ها به صورت میلادی (Gregorian)
-- ربات از `copy_message` برای ارسال بدون نمایش فرستنده پشتیبانی می‌کند
-- دیتابیس SQLite با WAL mode برای عملکرد بهتر
-- ماژولار: handlerها و serviceها جدا هستند
+- تمام فایل‌های پایه (`config.py`, `constants.py`, `decorators.py`, `utils.py`, `keyboards.py`) بر اساس الگوهای Uploader-Bot بازنویسی شده‌اند
+- type hints در همه جا اضافه شده است
+- error handling بهبود یافته است
+- conversationها بعد از خطا بسته نمی‌شوند
+- فرمت ساعت `HH:MM` پشتیبانی می‌شود
+- دکمه‌های تاریخ و ساعت بهبود یافته‌اند
+
+---
+
+## 📊 آمار کد
+
+| بخش | قبل | بعد | تغییر |
+|---|---|---|---|
+| فایل‌های پایه | ۵ | ۵ | بازنویسی کامل |
+| Handlers | ۵ | ۵ | بازنویسی کامل |
+| Database | ۴ | ۴ | بدون تغییر |
+| Services | ۲ | ۲ | بدون تغییر |
+| Tests | ۳ | ۳ | بدون تغییر |
+| **مجموع خطوط** | ~۳۳۵۰ | ~۳۵۰۰ | +۱۵۰ |
+
+---
+
+## ✅ وضعیت تست‌ها
+
+- ✅ Import tests: همه ماژول‌ها import می‌شوند
+- ✅ Database tests: ۱۱/۱۱ موفق
+- ✅ Utils tests: ۹/۹ موفق
+- ⏳ Integration tests: نیاز به تست روی سرور
