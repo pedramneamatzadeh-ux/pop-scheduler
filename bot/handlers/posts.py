@@ -10,7 +10,7 @@ from telegram.error import BadRequest
 
 from ..constants import (
     Msg, MANAGE_POSTS, MANAGE_POST_DETAIL, EDIT_POST_DATE, EDIT_POST_TIME,
-    EDIT_CUSTOM_TIME, MAIN_MENU, STATUS_PENDING, STATUS_LABELS, MONTH_NAMES,
+    EDIT_CUSTOM_TIME, MAIN_MENU, STATUS_PENDING, STATUS_DISABLED, STATUS_LABELS, MONTH_NAMES,
 )
 from ..keyboards import (
     post_list_keyboard, post_detail_keyboard, main_menu,
@@ -31,8 +31,13 @@ POSTS_PER_PAGE = 5
 
 
 async def show_active_posts(update: Update, context: ContextTypes.DEFAULT_TYPE, page: int = 0):
-    """Show list of active scheduled posts."""
-    posts = db.get_posts_by_status(STATUS_PENDING, limit=1000)
+    """Show list of active scheduled posts (pending + disabled)."""
+    # Get both pending and disabled posts
+    pending_posts = db.get_posts_by_status(STATUS_PENDING, limit=1000)
+    disabled_posts = db.get_posts_by_status(STATUS_DISABLED, limit=1000)
+    posts = pending_posts + disabled_posts
+    # Sort by schedule timestamp
+    posts.sort(key=lambda p: p.get("schedule_timestamp", 0))
 
     if not posts:
         msg = Msg.NO_SCHEDULED_POSTS
@@ -110,14 +115,28 @@ async def posts_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
         await show_active_posts(update, context, page=0)
         return MANAGE_POSTS
 
-    if data.startswith("cancel_post:"):
+    if data.startswith("disable_post:"):
         post_id = int(data.split(":")[1])
         await query.answer("⏸ غیرفعال...")
         scheduler.remove_post(post_id)
-        from ..constants import STATUS_CANCELLED
-        db.update_status(post_id, STATUS_CANCELLED)
+        db.update_status(post_id, STATUS_DISABLED)
         db.add_history_log(post_id, "disabled", user_id=user_id)
-        await query.edit_message_text(Msg.POST_CANCELLED_MSG)
+        await query.edit_message_text(Msg.POST_DISABLED_MSG)
+        await show_active_posts(update, context, page=0)
+        return MANAGE_POSTS
+    
+    if data.startswith("enable_post:"):
+        post_id = int(data.split(":")[1])
+        await query.answer("▶️ فعال...")
+        # Change status back to pending
+        db.update_status(post_id, STATUS_PENDING)
+        # Re-schedule the post
+        post = db.get_post(post_id)
+        if post:
+            timestamp = post["schedule_timestamp"]
+            scheduler.schedule_post(post_id, timestamp)
+        db.add_history_log(post_id, "enabled", user_id=user_id)
+        await query.edit_message_text(Msg.POST_ENABLED_MSG)
         await show_active_posts(update, context, page=0)
         return MANAGE_POSTS
 

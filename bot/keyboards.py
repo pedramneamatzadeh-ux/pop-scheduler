@@ -262,7 +262,15 @@ def post_detail_keyboard(
         ])
         buttons.append([
             ib("🗑 حذف کامل", callback_data=f"del:{post_id}", style="danger"),
-            ib("⏸ غیرفعال کردن", callback_data=f"cancel_post:{post_id}", style="danger"),
+            ib("⏸ غیرفعال کردن", callback_data=f"disable_post:{post_id}", style="danger"),
+        ])
+    elif status == "disabled":
+        # پست غیرفعال - فقط می‌تونه فعال کنه یا حذف کنه
+        buttons.append([
+            ib("▶️ فعال کردن مجدد", callback_data=f"enable_post:{post_id}", style="success"),
+        ])
+        buttons.append([
+            ib("🗑 حذف کامل", callback_data=f"del:{post_id}", style="danger"),
         ])
     
     buttons.append([ib("📋 بازگشت به لیست", callback_data="back_to_list")])

@@ -19,7 +19,7 @@ class Config:
     
     DB_PATH: str = os.path.join(_PROJECT_ROOT, "scheduler.db")
     DEFAULT_HOURS: List[int] = [8, 11, 14, 17, 20, 23]
-    TIMEZONE: str = "Europe/Berlin"
+    TIMEZONE: str = "Asia/Tehran"  # تغییر از Europe/Berlin به تهران
 
     def __init__(self) -> None:
         self.BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")

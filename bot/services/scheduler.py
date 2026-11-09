@@ -53,13 +53,15 @@ class SchedulerService:
         self.remove_post(post_id)
 
         # Add new job
+        # misfire_grace_time=None means the job will be executed no matter how late it is
+        # This ensures posts are delivered even after connection issues
         self._scheduler.add_job(
             deliver_post,
             trigger=DateTrigger(run_date=target_dt),
             args=[post_id],
             id=job_id,
             replace_existing=True,
-            misfire_grace_time=3600  # 1 hour grace period
+            misfire_grace_time=None  # No grace time limit - deliver even if late
         )
         logger.info("Scheduled post %d for %s", post_id, target_dt.isoformat())
 
