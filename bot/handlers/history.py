@@ -51,6 +51,9 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE, page:
 
 async def history_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle callback queries for history."""
+    from ..decorators import _check_due_posts
+    await _check_due_posts()
+    
     query = update.callback_query
     data = query.data
     user_id = query.from_user.id
