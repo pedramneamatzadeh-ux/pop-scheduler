@@ -56,7 +56,7 @@ def parse_message_ids(text: Optional[str]) -> Optional[List[int]]:
     - ترکیبی: "10,13-15,17" -> [10, 13, 14, 15, 17]
     
     Returns:
-        لیست مرتب‌شده از آیدی‌ها، یا None اگر فرمت نامعتبر باشد.
+        لیست با حفظ ترتیب ورودی (بدون تکرار)، یا None اگر فرمت نامعتبر باشد.
     """
     if not text:
         return None
@@ -67,7 +67,8 @@ def parse_message_ids(text: Optional[str]) -> Optional[List[int]]:
     # نرمال‌سازی جداکننده‌ها
     clean_text = clean_text.replace("،", ",").replace(" ", ",")
     
-    ids = set()
+    ids = []
+    seen = set()  # برای جلوگیری از تکرار
     parts = clean_text.split(",")
     
     for part in parts:
@@ -85,7 +86,10 @@ def parse_message_ids(text: Optional[str]) -> Optional[List[int]]:
                     return None
                 if end - start > 1000:  # محدودیت برای جلوگیری از سوءاستفاده
                     return None
-                ids.update(range(start, end + 1))
+                for i in range(start, end + 1):
+                    if i not in seen:
+                        ids.append(i)
+                        seen.add(i)
             else:
                 return None
         else:
@@ -94,14 +98,16 @@ def parse_message_ids(text: Optional[str]) -> Optional[List[int]]:
                 msg_id = int(part)
                 if msg_id < 1:
                     return None
-                ids.add(msg_id)
+                if msg_id not in seen:
+                    ids.append(msg_id)
+                    seen.add(msg_id)
             except ValueError:
                 return None
     
     if not ids:
         return None
     
-    return sorted(ids)
+    return ids
 
 
 def format_message_ids(ids: List[int], max_display: int = 10) -> str:
