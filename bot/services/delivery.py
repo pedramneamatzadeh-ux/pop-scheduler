@@ -73,21 +73,35 @@ async def deliver_post(post_id: int):
             # Copy each message from source to target
             success_count = 0
             failed_ids = []
+            max_retries = 3  # Maximum retry attempts per message
 
             for msg_id in message_ids:
-                try:
-                    logger.info("Copying message %d from %s to %s", msg_id, source_channel, target_channel)
-                    await bot.copy_message(
-                        chat_id=target_channel,
-                        from_chat_id=source_channel,
-                        message_id=msg_id,
-                    )
-                    success_count += 1
-                    logger.info("Successfully copied message %d", msg_id)
-                except TelegramError as e:
-                    logger.warning("Failed to copy message %d: %s", msg_id, e)
-                    failed_ids.append(msg_id)
-                    # Continue with other messages
+                retry_count = 0
+                success = False
+                
+                while retry_count < max_retries and not success:
+                    try:
+                        logger.info("Copying message %d from %s to %s (attempt %d/%d)", 
+                                  msg_id, source_channel, target_channel, retry_count + 1, max_retries)
+                        await bot.copy_message(
+                            chat_id=target_channel,
+                            from_chat_id=source_channel,
+                            message_id=msg_id,
+                        )
+                        success_count += 1
+                        logger.info("Successfully copied message %d", msg_id)
+                        success = True
+                    except TelegramError as e:
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            logger.warning("Failed to copy message %d (attempt %d/%d): %s. Retrying...", 
+                                         msg_id, retry_count, max_retries, e)
+                            await sleep(2)  # Wait 2 seconds before retry
+                        else:
+                            logger.error("Failed to copy message %d after %d attempts: %s", 
+                                       msg_id, max_retries, e)
+                            failed_ids.append(msg_id)
+                            # Continue with other messages
 
             if success_count == 0:
                 # All failed
