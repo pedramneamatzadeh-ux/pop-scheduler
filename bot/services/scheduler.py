@@ -57,6 +57,15 @@ class SchedulerService:
 
         target_dt = datetime.fromtimestamp(schedule_timestamp, tz=tz)
 
+        # Safety check: refuse to schedule in the past
+        now = datetime.now(tz=tz)
+        if target_dt <= now:
+            logger.warning(
+                "Refusing to schedule post %d for past time %s (now is %s)",
+                post_id, target_dt.isoformat(), now.isoformat()
+            )
+            return False
+
         # Remove existing job if any
         self.remove_post(post_id)
 
@@ -105,8 +114,8 @@ class SchedulerService:
         pending = db.get_pending_posts()
         count = 0
         for post in pending:
-            self.schedule_post(post["id"], post["schedule_timestamp"])
-            count += 1
+            if self.schedule_post(post["id"], post["schedule_timestamp"]):
+                count += 1
         logger.info("Re-scheduled %d pending posts", count)
         return count
 
