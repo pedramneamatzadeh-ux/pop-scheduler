@@ -529,6 +529,20 @@ async def select_target_callback(
         # محاسبه timestamp
         timestamp = to_timestamp(year, month, day, hour)
         
+        # بررسی مجدد اینکه زمان در آینده هست
+        from datetime import datetime as dt_class
+        from ..utils import now_tz
+        current_time = now_tz()
+        target_time = dt_class.fromtimestamp(timestamp, tz=current_time.tzinfo)
+        
+        if target_time <= current_time:
+            await query.edit_message_text(
+                "❌ زمان انتخاب‌شده در گذشته است. لطفاً زمان آینده‌ای انتخاب کن.",
+                reply_markup=None,
+                parse_mode="HTML"
+            )
+            return ConversationHandler.END
+        
         # ذخیره در دیتابیس
         post_id = db.add_post(
             chat_id=query.message.chat_id,
