@@ -527,7 +527,8 @@ async def select_target_callback(
         schedule_time = context.user_data.get("schedule_time", "")
         
         # محاسبه timestamp
-        timestamp = to_timestamp(year, month, day, hour)
+        minute = context.user_data.get("minute", 0)
+        timestamp = to_timestamp(year, month, day, hour, minute)
         
         # بررسی مجدد اینکه زمان در آینده هست
         from datetime import datetime as dt_class
