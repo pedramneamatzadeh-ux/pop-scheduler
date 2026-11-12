@@ -98,10 +98,10 @@ async def deliver_post(post_id: int):
                                          msg_id, retry_count, max_retries, e)
                             await sleep(2)  # Wait 2 seconds before retry
                         else:
-                            logger.error("Failed to copy message %d after %d attempts: %s", 
+                            logger.error("Failed to copy message %d after %d attempts: %s. Stopping delivery.", 
                                        msg_id, max_retries, e)
                             failed_ids.append(msg_id)
-                            # Continue with other messages
+                            break  # Stop delivery, don't continue with other messages
 
             if success_count == 0:
                 # All failed
