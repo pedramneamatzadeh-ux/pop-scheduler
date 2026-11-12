@@ -9,7 +9,7 @@ from telegram.error import TelegramError, RetryAfter, BadRequest
 from asyncio import sleep, Lock
 
 from ..database import db
-from ..constants import STATUS_SENT, STATUS_FAILED
+from ..constants import STATUS_PENDING, STATUS_SENDING, STATUS_SENT, STATUS_FAILED
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +43,13 @@ async def deliver_post(post_id: int):
             logger.error("Post %d not found for delivery", post_id)
             return
 
-        if post["status"] != "pending":
+        if post["status"] != STATUS_PENDING:
             logger.warning("Post %d is not pending (status=%s), skipping", post_id, post["status"])
             return
+
+        # تغییر status به sending برای جلوگیری از duplicate
+        db.update_status(post_id, STATUS_SENDING)
+        logger.info("Post %d status changed to 'sending'", post_id)
 
         source_channel = post["source_channel"]
         target_channel = post["target_channel"]

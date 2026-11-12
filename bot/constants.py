@@ -63,6 +63,7 @@ MONTH_NAMES_SHORT = {
 # ============================================================================
 
 STATUS_PENDING = "pending"
+STATUS_SENDING = "sending"  # در حال ارسال (برای جلوگیری از duplicate)
 STATUS_SENT = "sent"
 STATUS_FAILED = "failed"
 STATUS_CANCELLED = "cancelled"
@@ -70,6 +71,7 @@ STATUS_DISABLED = "disabled"  # غیرفعال (قابل فعال‌سازی م�
 
 STATUS_LABELS = {
     STATUS_PENDING: "⏳ در انتظار",
+    STATUS_SENDING: "📤 در حال ارسال",
     STATUS_SENT: "✅ ارسال شده",
     STATUS_FAILED: "❌ ناموفق",
     STATUS_CANCELLED: "❌ لغو شده",
