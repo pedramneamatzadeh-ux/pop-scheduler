@@ -68,6 +68,9 @@ async def show_active_posts(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
 async def posts_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle callback queries for posts management."""
+    from ..decorators import _check_due_posts
+    await _check_due_posts()
+    
     query = update.callback_query
     data = query.data
     user_id = query.from_user.id

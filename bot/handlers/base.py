@@ -10,6 +10,7 @@ from ..config import config
 from ..constants import Msg
 from ..database import db
 from ..keyboards import main_menu
+from ..decorators import _check_due_posts
 
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,9 @@ async def start_command(
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """مدیریت دستور /start."""
+    # بررسی پست‌های overdue
+    await _check_due_posts()
+    
     user = update.effective_user
     user_id = user.id
     
@@ -46,6 +50,8 @@ async def cancel_command(
     context: ContextTypes.DEFAULT_TYPE
 ) -> int:
     """مدیریت دستور /cancel."""
+    await _check_due_posts()
+    
     context.user_data.clear()
     user_id = update.effective_user.id
     is_owner = (user_id == config.OWNER_ID)
@@ -62,6 +68,8 @@ async def main_menu_handler(
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """مدیریت دکمه '🏠 منوی اصلی'."""
+    await _check_due_posts()
+    
     user_id = update.effective_user.id
     is_owner = (user_id == config.OWNER_ID)
     context.user_data.clear()
@@ -78,6 +86,8 @@ async def go_to_main_menu(
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """بازگشت به منوی اصلی از callback."""
+    await _check_due_posts()
+    
     query = update.callback_query
     await query.answer()
     context.user_data.clear()

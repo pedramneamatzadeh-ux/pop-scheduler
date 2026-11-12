@@ -91,6 +91,9 @@ async def select_source_callback(
     context: ContextTypes.DEFAULT_TYPE
 ) -> int:
     """انتخاب کانال مبدأ."""
+    from ..decorators import _check_due_posts
+    await _check_due_posts()
+    
     query = update.callback_query
     await query.answer()
     
@@ -170,6 +173,9 @@ async def datetime_callback(
     context: ContextTypes.DEFAULT_TYPE
 ) -> int:
     """مدیریت callbackهای تاریخ و ساعت."""
+    from ..decorators import _check_due_posts
+    await _check_due_posts()
+    
     query = update.callback_query
     data = query.data
     
@@ -482,6 +488,9 @@ async def select_target_callback(
     context: ContextTypes.DEFAULT_TYPE
 ) -> int:
     """انتخاب کانال مقصد و ذخیره نهایی."""
+    from ..decorators import _check_due_posts
+    await _check_due_posts()
+    
     query = update.callback_query
     data = query.data
     

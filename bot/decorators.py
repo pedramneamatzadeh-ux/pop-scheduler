@@ -1,6 +1,7 @@
 """
 دکوراتورهای احراز هویت و دسترسی.
 """
+import logging
 from functools import wraps
 from typing import Any, Callable
 
@@ -9,6 +10,20 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from .config import config
 from .constants import Msg
+
+logger = logging.getLogger(__name__)
+
+
+async def _check_due_posts():
+    """
+    بررسی و ارسال پست‌های overdue.
+    روی هر handler صدا زده می‌شه.
+    """
+    try:
+        from .services.scheduler import scheduler
+        await scheduler.check_due_posts_fallback()
+    except Exception as e:
+        logger.error("_check_due_posts error: %s", e)
 
 
 def owner_only(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -20,6 +35,9 @@ def owner_only(func: Callable[..., Any]) -> Callable[..., Any]:
         *args: Any,
         **kwargs: Any,
     ) -> Any:
+        # بررسی پست‌های overdue
+        await _check_due_posts()
+        
         user = update.effective_user
 
         if not user or config.OWNER_ID is None or user.id != config.OWNER_ID:
@@ -48,6 +66,9 @@ def admin_required(func: Callable[..., Any]) -> Callable[..., Any]:
         *args: Any,
         **kwargs: Any,
     ) -> Any:
+        # بررسی پست‌های overdue
+        await _check_due_posts()
+        
         user = update.effective_user
 
         if not user:

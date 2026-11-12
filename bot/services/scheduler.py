@@ -1,5 +1,6 @@
 """
 Scheduler service — manages APScheduler for post delivery.
+Also includes a fallback check on every update for reliability.
 """
 import logging
 from datetime import datetime, timezone
@@ -20,9 +21,16 @@ class SchedulerService:
     def start(self):
         """Start the scheduler."""
         if not self._started:
+            # Set job defaults to allow late execution
+            self._scheduler.configure(
+                job_defaults={
+                    'misfire_grace_time': None,  # No limit on lateness
+                    'coalesce': True,            # Combine missed runs into one
+                }
+            )
             self._scheduler.start()
             self._started = True
-            logger.info("Scheduler started")
+            logger.info("Scheduler started with misfire_grace_time=None")
 
     def stop(self):
         """Stop the scheduler."""
@@ -101,6 +109,29 @@ class SchedulerService:
             count += 1
         logger.info("Re-scheduled %d pending posts", count)
         return count
+
+    async def check_due_posts_fallback(self):
+        """
+        Fallback: Check and deliver any overdue posts that APScheduler missed.
+        Called on every update for reliability.
+        """
+        from ..database import db
+        from .delivery import deliver_post
+        from ..constants import STATUS_PENDING
+
+        try:
+            current_time = datetime.now(timezone.utc).timestamp()
+            pending = db.get_pending_posts()
+            
+            for post in pending:
+                if post["schedule_timestamp"] <= current_time:
+                    logger.info("Fallback: Post %d is overdue, delivering now", post["id"])
+                    try:
+                        await deliver_post(post["id"])
+                    except Exception as e:
+                        logger.error("Fallback delivery failed for post %d: %s", post["id"], e)
+        except Exception as e:
+            logger.error("check_due_posts_fallback error: %s", e)
 
 
 # Singleton instance
